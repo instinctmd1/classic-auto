@@ -1,0 +1,1150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="description" content="Classic Auto — offline Instagram post generator. Runs from file://, no network needed." />
+<title>Classic Auto — Instagram Post Generator</title>
+<style>
+  :root{
+    --ground:#070D1C;
+    --surface:#101B38;
+    --surface-2:#16234A;
+    --red:#E11B22;
+    --blue:#2B3990;
+    --off:#F5F2EC;
+    --dim:#8B93A8;
+    --hairline: rgba(245,242,236,0.14);
+    --font: "Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;
+    --serif: "Playfair Display","Bodoni MT",Georgia,"Times New Roman",serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--ground);
+    color:var(--off);
+    font-family:var(--font);
+    font-weight:400;
+    -webkit-font-smoothing:antialiased;
+    min-height:100vh;
+  }
+  @media (prefers-reduced-motion: reduce){
+    *{animation-duration:0.01ms !important; transition-duration:0.01ms !important;}
+  }
+  a{color:inherit;}
+
+  header.top{
+    text-align:center;
+    padding:40px 20px 28px;
+    border-bottom:1px solid var(--hairline);
+  }
+  .wordmark{
+    font-family:var(--serif);
+    font-weight:400;
+    letter-spacing:0.26em;
+    text-indent:0.26em;
+    text-transform:uppercase;
+    font-size:24px;
+    margin:0;
+  }
+  .rule{
+    width:52px;
+    height:2px;
+    background:var(--red);
+    margin:14px auto 0;
+  }
+  .kicker{
+    font-size:12px;
+    letter-spacing:0.18em;
+    text-transform:uppercase;
+    color:var(--dim);
+    margin:16px 0 0;
+  }
+
+  .layout{
+    max-width:1180px;
+    margin:0 auto;
+    padding:36px 20px 80px;
+    display:grid;
+    grid-template-columns:1fr;
+    gap:40px;
+  }
+  @media (min-width:900px){
+    .layout{
+      grid-template-columns:380px 1fr;
+      align-items:start;
+      padding-top:56px;
+    }
+  }
+
+  .controls{
+    display:flex;
+    flex-direction:column;
+    gap:28px;
+  }
+
+  .field-group{
+    display:flex;
+    flex-direction:column;
+    gap:16px;
+  }
+
+  label{
+    display:block;
+    font-size:12px;
+    letter-spacing:0.1em;
+    text-transform:uppercase;
+    color:var(--dim);
+    margin-bottom:8px;
+  }
+  label .optional{
+    text-transform:none;
+    letter-spacing:0;
+    color:var(--dim);
+    opacity:0.7;
+  }
+
+  input[type="text"],
+  input[type="number"]{
+    width:100%;
+    background:var(--surface);
+    border:1px solid var(--hairline);
+    color:var(--off);
+    font-family:var(--font);
+    font-size:16px;
+    padding:12px 14px;
+    min-height:44px;
+    border-radius:2px;
+  }
+  input[type="text"]::placeholder,
+  input[type="number"]::placeholder{
+    color:var(--dim);
+    opacity:0.6;
+  }
+  input[type="text"]:focus-visible,
+  input[type="number"]:focus-visible,
+  button:focus-visible,
+  .segmented button:focus-visible,
+  .dropzone:focus-visible{
+    outline:2px solid var(--red);
+    outline-offset:2px;
+  }
+
+  .row-2{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:14px;
+  }
+
+  .dropzone{
+    border:1px dashed var(--hairline);
+    background:var(--surface);
+    padding:22px 16px;
+    text-align:center;
+    cursor:pointer;
+    color:var(--dim);
+    font-size:13px;
+    line-height:1.6;
+    transition:border-color 120ms ease, background 120ms ease;
+  }
+  .dropzone.drag-over{
+    border-color:var(--red);
+    background:var(--surface-2);
+  }
+  .dropzone strong{
+    color:var(--off);
+    font-weight:400;
+    display:block;
+    font-size:14px;
+    margin-bottom:4px;
+  }
+  .dropzone input[type="file"]{
+    position:absolute;
+    width:1px;height:1px;
+    opacity:0;
+    overflow:hidden;
+  }
+  .dz-wrap{position:relative;}
+
+  .segmented{
+    display:flex;
+    border:1px solid var(--hairline);
+    background:var(--surface);
+  }
+  .segmented button{
+    flex:1;
+    background:none;
+    border:none;
+    color:var(--dim);
+    font-family:var(--font);
+    font-size:13px;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    padding:12px 8px;
+    min-height:44px;
+    cursor:pointer;
+  }
+  .segmented button.active{
+    background:var(--red);
+    color:#FFFFFF;
+  }
+  .segmented button + button{
+    border-left:1px solid var(--hairline);
+  }
+
+  .toggle-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    border:1px solid var(--hairline);
+    background:var(--surface);
+    padding:10px 14px;
+    border-radius:2px;
+  }
+  .toggle-row span.t-label{
+    font-size:13px;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    color:var(--off);
+  }
+  .toggle{
+    background:none;
+    border:1px solid var(--hairline);
+    color:var(--dim);
+    font-family:var(--font);
+    font-size:12px;
+    letter-spacing:0.1em;
+    text-transform:uppercase;
+    min-height:36px;
+    min-width:70px;
+    padding:6px 14px;
+    cursor:pointer;
+    border-radius:2px;
+  }
+  .toggle.on{
+    background:var(--red);
+    border-color:var(--red);
+    color:#FFFFFF;
+  }
+
+  .slider-row{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+  }
+  input[type="range"]{
+    width:100%;
+    accent-color:var(--red);
+    height:44px;
+  }
+
+  .hint{
+    font-size:12px;
+    color:var(--dim);
+    line-height:1.6;
+    margin:0;
+  }
+
+  .btn{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:10px;
+    min-height:48px;
+    padding:12px 22px;
+    font-family:var(--font);
+    font-size:15px;
+    font-weight:700;
+    letter-spacing:0.06em;
+    text-transform:uppercase;
+    border:1px solid var(--red);
+    background:var(--red);
+    color:#FFFFFF;
+    cursor:pointer;
+    width:100%;
+    border-radius:2px;
+    transition:opacity 120ms ease;
+  }
+  .btn:disabled{
+    opacity:0.35;
+    cursor:not-allowed;
+  }
+  .btn.secondary{
+    background:transparent;
+    border-color:var(--hairline);
+    color:var(--dim);
+    font-weight:600;
+    text-transform:none;
+    letter-spacing:0.02em;
+    font-size:13px;
+    min-height:44px;
+  }
+
+  .preview-col{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:18px;
+  }
+  .canvas-frame{
+    position:relative;
+    width:100%;
+    max-width:420px;
+    background:var(--ground);
+    border:1px solid var(--hairline);
+    touch-action:none;
+  }
+  .canvas-frame.aspect-post{aspect-ratio:1080/1350;}
+  .canvas-frame.aspect-story{aspect-ratio:1080/1920;}
+  #postCanvas{
+    display:block;
+    width:100%;
+    height:100%;
+    cursor:grab;
+  }
+  #postCanvas.dragging{cursor:grabbing;}
+  .preview-note{
+    font-size:12px;
+    color:var(--dim);
+    text-align:center;
+    max-width:420px;
+  }
+
+  .section-label{
+    font-size:12px;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    color:var(--red);
+    margin:0 0 4px;
+    font-weight:600;
+  }
+</style>
+</head>
+<body>
+
+  <header class="top">
+    <p class="wordmark">Classic Auto</p>
+    <div class="rule"></div>
+    <p class="kicker">Instagram post generator</p>
+  </header>
+
+  <main class="layout">
+
+    <section class="controls" aria-label="Post details">
+
+      <div>
+        <p class="section-label">Photo</p>
+        <div class="dz-wrap">
+          <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="Upload car photo">
+            <strong id="dzTitle">Upload a car photo</strong>
+            <span id="dzSub">Tap to choose a file, or drag one here</span>
+          </div>
+          <input type="file" id="fileInput" accept="image/*" />
+        </div>
+      </div>
+
+      <div class="slider-row" id="zoomRow" style="display:none;">
+        <label for="zoom">Zoom photo</label>
+        <input type="range" id="zoom" min="0" max="100" value="0" />
+        <p class="hint">Drag the photo directly in the preview to reposition it.</p>
+        <button type="button" class="btn secondary" id="recenterBtn">Recenter photo</button>
+      </div>
+
+      <div>
+        <p class="section-label">Format</p>
+        <div class="segmented" role="group" aria-label="Post format">
+          <button type="button" id="fmtPost" class="active" aria-pressed="true">Post 4:5</button>
+          <button type="button" id="fmtStory" aria-pressed="false">Story 9:16</button>
+        </div>
+      </div>
+
+      <div class="field-group">
+        <p class="section-label">Details</p>
+
+        <div>
+          <label for="carName">Car name</label>
+          <input type="text" id="carName" placeholder="e.g. BMW X5 xDrive30d" />
+        </div>
+
+        <div class="row-2">
+          <div>
+            <label for="year">Year</label>
+            <input type="text" inputmode="numeric" id="year" placeholder="2021" />
+          </div>
+          <div>
+            <label for="kms">Kilometres</label>
+            <input type="text" id="kms" placeholder="34,000 km" />
+          </div>
+        </div>
+
+        <div>
+          <label id="ownersLabel">Ownership</label>
+          <div class="segmented" role="group" aria-labelledby="ownersLabel">
+            <button type="button" class="owner-btn active" data-owner="1st Owner" aria-pressed="true">1st</button>
+            <button type="button" class="owner-btn" data-owner="2nd Owner" aria-pressed="false">2nd</button>
+            <button type="button" class="owner-btn" data-owner="3rd Owner" aria-pressed="false">3rd</button>
+          </div>
+        </div>
+
+        <div class="row-2">
+          <div>
+            <label for="fuel">Fuel <span class="optional">(optional)</span></label>
+            <input type="text" id="fuel" placeholder="Diesel" />
+          </div>
+          <div>
+            <label for="price">Price in ₹ lakh <span class="optional">(optional)</span></label>
+            <input type="text" id="price" placeholder="52.5" />
+          </div>
+        </div>
+      </div>
+
+      <div class="field-group">
+        <p class="section-label">Extras</p>
+
+        <div class="toggle-row">
+          <span class="t-label">Sold badge</span>
+          <button type="button" class="toggle" id="soldToggle" aria-pressed="false">Off</button>
+        </div>
+
+        <div class="toggle-row">
+          <span class="t-label">Festival greeting</span>
+          <button type="button" class="toggle" id="festToggle" aria-pressed="false">Off</button>
+        </div>
+
+        <div id="greetingWrap" style="display:none;">
+          <label for="greeting">Greeting line</label>
+          <input type="text" id="greeting" placeholder="e.g. Happy Diwali from the Classic Auto family" />
+          <p class="hint" style="margin-top:8px;">Same dark template, one elegant greeting line — festival posts stay on-grid. Works with or without a car photo.</p>
+        </div>
+      </div>
+
+      <div>
+        <p class="section-label">Logo <span class="optional" style="color:var(--dim);text-transform:none;letter-spacing:0;font-weight:400;">(optional)</span></p>
+        <div class="dz-wrap">
+          <div class="dropzone" id="logoDrop" tabindex="0" role="button" aria-label="Upload dealership logo PNG">
+            <strong id="logoTitle">Upload logo PNG</strong>
+            <span id="logoSub">Optional — replaces the default Classic Auto logo in the footer</span>
+          </div>
+          <input type="file" id="logoInput" accept="image/png,image/*" />
+        </div>
+        <button type="button" class="btn secondary" id="logoClearBtn" style="display:none;margin-top:10px;">Remove logo · use default Classic Auto logo</button>
+      </div>
+
+      <div>
+        <button type="button" class="btn" id="downloadBtn" disabled>Download PNG</button>
+        <p class="hint" id="downloadHint" style="margin-top:10px;">Add a photo and a car name (or turn on a festival greeting) to enable download.</p>
+      </div>
+
+    </section>
+
+    <section class="preview-col" aria-label="Live preview">
+      <div class="canvas-frame aspect-post" id="canvasFrame">
+        <canvas id="postCanvas" width="1080" height="1350"></canvas>
+      </div>
+      <p class="preview-note" id="previewNote">1080 × 1350 · exports at full resolution</p>
+    </section>
+
+  </main>
+
+<script>
+(function(){
+  "use strict";
+
+  var FONT_SANS = '"Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif';
+  var FONT_SERIF = '"Playfair Display","Bodoni MT",Georgia,"Times New Roman",serif';
+
+  var COLOR_NAVY = '#0A1633';
+  var COLOR_RED = '#E11B22';
+  var COLOR_BLUE = '#2B3990';
+  var COLOR_WHITE = '#FFFFFF';
+  var COLOR_OFF = '#F5F2EC';
+  var COLOR_DIM = 'rgba(245,242,236,0.55)';
+  var COLOR_HAIRLINE = 'rgba(245,242,236,0.18)';
+
+  var PHONE = '+91 9588990000';
+
+  // ---------- default brand logo ----------
+  // The real Classic Auto logo, embedded as a data URI. Never reference the
+  // SVG by file path here: drawing a file:// image taints the canvas and
+  // kills PNG export. data: URIs are same-origin and stay export-safe.
+  var LOGO_SVG =
+    '<svg xmlns="http://www.w3.org/2000/svg" width="840" height="496" viewBox="0 0 840 496">' +
+    '<path d="M 100 12 L 300 12 L 300 88 L 128 88 Q 96 88 96 120 L 96 238 Q 96 268 128 268 L 688 268 Q 722 268 722 302 L 722 310 Q 722 344 688 344 L 92 344 Q 14 344 14 266 L 14 98 Q 14 12 100 12 Z" fill="#E11B22"/>' +
+    '<g fill="#2B3990"><polygon points="468,6 552,6 372,360 288,360"/><polygon points="468,6 552,6 758,360 674,360"/><polygon points="404,212 620,212 650,282 370,282"/></g>' +
+    '<text x="712" y="30" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="26" font-weight="bold" font-style="italic" letter-spacing="1" fill="#E11B22">SINCE 1974</text>' +
+    '<g fill="none" stroke="#2B3990" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"><path d="M 540 400 q 30 -6 52 -18 q 40 -22 92 -24 q 56 -2 88 18 q 26 2 44 10 q 10 4 -2 8"/><path d="M 560 402 q 130 -12 250 -8"/></g>' +
+    '<circle cx="612" cy="404" r="11" fill="#FFFFFF" stroke="#2B3990" stroke-width="7"/>' +
+    '<circle cx="762" cy="402" r="11" fill="#FFFFFF" stroke="#2B3990" stroke-width="7"/>' +
+    '<text x="420" y="482" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-style="italic" font-size="88" fill="#E11B22">CLASSIC-AUTO</text>' +
+    '</svg>';
+  var brandLogo = new Image();
+  brandLogo.onload = function(){ render(); };
+  brandLogo.src = 'data:image/svg+xml;utf8,' + encodeURIComponent(LOGO_SVG);
+
+  var LAYOUTS = {
+    post: {
+      W: 1080, H: 1350,
+      frame: { x: 0, y: 0, w: 1080, h: 830 },
+      fadeH: 230,
+      greetingY: 768,
+      nameY: 962, fuelGap: 52,
+      priceCY: 1084, priceH: 66,
+      stripTop: 1140, labelY: 1188, valueY: 1232, stripPadY: 18,
+      footerTop: 1264,
+      margin: 64
+    },
+    story: {
+      W: 1080, H: 1920,
+      frame: { x: 0, y: 0, w: 1080, h: 1280 },
+      fadeH: 270,
+      greetingY: 1216,
+      nameY: 1424, fuelGap: 54,
+      priceCY: 1552, priceH: 70,
+      stripTop: 1626, labelY: 1678, valueY: 1726, stripPadY: 20,
+      footerTop: 1780,
+      margin: 64
+    }
+  };
+
+  var state = {
+    format: 'post',
+    img: null,
+    natW: 0, natH: 0,
+    zoomFactor: 1,     // multiplier on top of cover baseScale, 1..2.6
+    offsetX: 0, offsetY: 0,
+    dragging: false,
+    lastX: 0, lastY: 0,
+    ownership: '1st Owner',
+    sold: false,
+    festival: false,
+    logoImg: null
+  };
+
+  var canvas = document.getElementById('postCanvas');
+  var ctx = canvas.getContext('2d');
+  var canvasFrame = document.getElementById('canvasFrame');
+  var fileInput = document.getElementById('fileInput');
+  var dropzone = document.getElementById('dropzone');
+  var dzTitle = document.getElementById('dzTitle');
+  var dzSub = document.getElementById('dzSub');
+  var zoomRow = document.getElementById('zoomRow');
+  var zoomSlider = document.getElementById('zoom');
+  var recenterBtn = document.getElementById('recenterBtn');
+  var fmtPostBtn = document.getElementById('fmtPost');
+  var fmtStoryBtn = document.getElementById('fmtStory');
+  var downloadBtn = document.getElementById('downloadBtn');
+  var downloadHint = document.getElementById('downloadHint');
+  var previewNote = document.getElementById('previewNote');
+  var soldToggle = document.getElementById('soldToggle');
+  var festToggle = document.getElementById('festToggle');
+  var greetingWrap = document.getElementById('greetingWrap');
+  var logoInput = document.getElementById('logoInput');
+  var logoDrop = document.getElementById('logoDrop');
+  var logoTitle = document.getElementById('logoTitle');
+  var logoSub = document.getElementById('logoSub');
+  var logoClearBtn = document.getElementById('logoClearBtn');
+  var ownerBtns = Array.prototype.slice.call(document.querySelectorAll('.owner-btn'));
+
+  var fields = {
+    carName: document.getElementById('carName'),
+    year: document.getElementById('year'),
+    kms: document.getElementById('kms'),
+    fuel: document.getElementById('fuel'),
+    price: document.getElementById('price'),
+    greeting: document.getElementById('greeting')
+  };
+
+  // ---------- text helpers ----------
+
+  function trackedWidth(c, text, spacing){
+    var w = 0;
+    for (var i = 0; i < text.length; i++){ w += c.measureText(text[i]).width; }
+    w += spacing * Math.max(0, text.length - 1);
+    return w;
+  }
+
+  function drawTracked(c, text, x, y, spacing, align){
+    var totalW = trackedWidth(c, text, spacing);
+    var startX;
+    if (align === 'right') startX = x - totalW;
+    else if (align === 'left') startX = x;
+    else startX = x - totalW / 2;
+    c.textAlign = 'left';
+    var cx = startX;
+    for (var i = 0; i < text.length; i++){
+      c.fillText(text[i], cx, y);
+      cx += c.measureText(text[i]).width + spacing;
+    }
+    return totalW;
+  }
+
+  function fitFontSize(c, text, weight, spacingEm, maxWidth, startSize, minSize, fontStack, italic){
+    var size = startSize;
+    var style = italic ? 'italic ' : '';
+    while (size > minSize){
+      c.font = style + weight + ' ' + size + 'px ' + fontStack;
+      var spacing = size * spacingEm;
+      if (trackedWidth(c, text, spacing) <= maxWidth) break;
+      size -= 2;
+    }
+    return size;
+  }
+
+  function roundRectPath(c, x, y, w, h, r){
+    c.beginPath();
+    c.moveTo(x + r, y);
+    c.lineTo(x + w - r, y);
+    c.arcTo(x + w, y, x + w, y + r, r);
+    c.lineTo(x + w, y + h - r);
+    c.arcTo(x + w, y + h, x + w - r, y + h, r);
+    c.lineTo(x + r, y + h);
+    c.arcTo(x, y + h, x, y + h - r, r);
+    c.lineTo(x, y + r);
+    c.arcTo(x, y, x + r, y, r);
+    c.closePath();
+  }
+
+  function slugify(text){
+    return text
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+  }
+
+  function priceLabel(){
+    var raw = fields.price.value.trim();
+    if (!raw) return '';
+    var v = raw.replace(/^₹\s*/, '');
+    if (/lakh|lac|crore|cr/i.test(v)) return '₹ ' + v.toUpperCase();
+    return '₹ ' + v.toUpperCase() + ' LAKH';
+  }
+
+  // ---------- image cover / pan / zoom math ----------
+
+  function baseScale(layout){
+    if (!state.img) return 1;
+    var fw = layout.frame.w, fh = layout.frame.h;
+    return Math.max(fw / state.natW, fh / state.natH);
+  }
+
+  function currentScale(layout){
+    return baseScale(layout) * state.zoomFactor;
+  }
+
+  function clampOffsets(layout){
+    if (!state.img) return;
+    var scale = currentScale(layout);
+    var drawW = state.natW * scale, drawH = state.natH * scale;
+    var fw = layout.frame.w, fh = layout.frame.h;
+    var minX = fw - drawW, minY = fh - drawH;
+    state.offsetX = Math.min(0, Math.max(minX, state.offsetX));
+    state.offsetY = Math.min(0, Math.max(minY, state.offsetY));
+  }
+
+  function recenter(layout){
+    if (!state.img) return;
+    var scale = currentScale(layout);
+    var drawW = state.natW * scale, drawH = state.natH * scale;
+    state.offsetX = (layout.frame.w - drawW) / 2;
+    state.offsetY = (layout.frame.h - drawH) / 2;
+  }
+
+  function applyZoom(newZoomFactor, layout){
+    if (!state.img) { state.zoomFactor = newZoomFactor; return; }
+    var oldScale = currentScale(layout);
+    var fw = layout.frame.w, fh = layout.frame.h;
+    var imgCx = (fw / 2 - state.offsetX) / oldScale;
+    var imgCy = (fh / 2 - state.offsetY) / oldScale;
+    state.zoomFactor = newZoomFactor;
+    var newScale = currentScale(layout);
+    state.offsetX = fw / 2 - imgCx * newScale;
+    state.offsetY = fh / 2 - imgCy * newScale;
+    clampOffsets(layout);
+  }
+
+  // ---------- template pieces ----------
+
+  function drawSoldStamp(layout){
+    var f = layout.frame;
+    var cx = f.x + f.w - 200, cy = f.y + 168;
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(-12 * Math.PI / 180);
+    ctx.strokeStyle = COLOR_RED;
+    ctx.lineWidth = 7;
+    roundRectPath(ctx, -138, -58, 276, 116, 10);
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(225,27,34,0.9)';
+    roundRectPath(ctx, -124, -44, 248, 88, 6);
+    ctx.fill();
+    ctx.fillStyle = COLOR_WHITE;
+    ctx.font = '800 58px ' + FONT_SANS;
+    ctx.textBaseline = 'middle';
+    drawTracked(ctx, 'SOLD', 0, 4, 10, 'center');
+    ctx.textBaseline = 'alphabetic';
+    ctx.restore();
+  }
+
+  function drawFooter(layout){
+    var top = layout.footerTop;
+    var bandH = layout.H - top;
+    // red accent rule, then royal blue band
+    ctx.fillStyle = COLOR_RED;
+    ctx.fillRect(0, top, layout.W, 3);
+    ctx.fillStyle = COLOR_BLUE;
+    ctx.fillRect(0, top + 3, layout.W, bandH - 3);
+
+    var cy = top + 3 + (bandH - 3) / 2;
+
+    // phone, right-aligned
+    ctx.fillStyle = COLOR_OFF;
+    ctx.font = '400 27px ' + FONT_SANS;
+    ctx.textBaseline = 'middle';
+    drawTracked(ctx, PHONE, layout.W - layout.margin, cy + 1, 1.5, 'right');
+
+    // SINCE 1974 — quiet centre mark on the band
+    ctx.fillStyle = 'rgba(245,242,236,0.55)';
+    ctx.font = '600 19px ' + FONT_SANS;
+    drawTracked(ctx, 'SINCE 1974', layout.W / 2, cy + 1, 4, 'center');
+
+    // branding, left: an uploaded logo overrides the embedded default
+    if (state.logoImg){
+      var maxW = 340, maxH = bandH - 30;
+      var s = Math.min(maxW / state.logoImg.naturalWidth, maxH / state.logoImg.naturalHeight);
+      var lw = state.logoImg.naturalWidth * s, lh = state.logoImg.naturalHeight * s;
+      ctx.drawImage(state.logoImg, layout.margin, cy - lh / 2, lw, lh);
+    } else if (brandLogo.complete && brandLogo.naturalWidth > 0){
+      // real logo on a small white rounded chip — the red/navy artwork
+      // needs white behind it to read on the navy band
+      var chipH = (bandH - 3) - 14;
+      var pad = Math.max(6, Math.round(chipH * 0.12));
+      var lgH = chipH - pad * 2;
+      var lgW = lgH * brandLogo.naturalWidth / brandLogo.naturalHeight;
+      var chipW = lgW + pad * 2;
+      var chipY = top + 3 + ((bandH - 3) - chipH) / 2;
+      ctx.fillStyle = COLOR_WHITE;
+      roundRectPath(ctx, layout.margin, chipY, chipW, chipH, 10);
+      ctx.fill();
+      ctx.drawImage(brandLogo, layout.margin + pad, chipY + pad, lgW, lgH);
+    } else {
+      // fallback while the embedded logo is still decoding
+      ctx.fillStyle = COLOR_WHITE;
+      ctx.font = '400 31px ' + FONT_SERIF;
+      drawTracked(ctx, 'CLASSIC AUTO', layout.margin, cy + 1, 5.5, 'left');
+    }
+    ctx.textBaseline = 'alphabetic';
+  }
+
+  function drawSpecStrip(layout, skipIfEmpty){
+    var cols = [
+      { label: 'Year', value: fields.year.value.trim() },
+      { label: 'Ownership', value: state.ownership },
+      { label: 'Kms', value: fields.kms.value.trim() }
+    ];
+    if (skipIfEmpty && !cols[0].value && !cols[2].value) return;
+
+    // thin red rule above the strip
+    ctx.fillStyle = COLOR_RED;
+    ctx.fillRect(layout.margin, layout.stripTop, layout.W - layout.margin * 2, 2);
+
+    var colW = layout.W / 3;
+    for (var i = 0; i < 3; i++){
+      var cx = colW * i + colW / 2;
+      ctx.font = '600 15px ' + FONT_SANS;
+      ctx.fillStyle = COLOR_DIM;
+      drawTracked(ctx, cols[i].label.toUpperCase(), cx, layout.labelY, 2.6, 'center');
+
+      var val = cols[i].value ? cols[i].value.toUpperCase() : '—';
+      var valSize = fitFontSize(ctx, val, '300', 0.02, colW - 40, 31, 16, FONT_SANS);
+      ctx.font = '300 ' + valSize + 'px ' + FONT_SANS;
+      ctx.fillStyle = COLOR_WHITE;
+      drawTracked(ctx, val, cx, layout.valueY, valSize * 0.02, 'center');
+
+      if (i > 0){
+        ctx.strokeStyle = COLOR_HAIRLINE;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(colW * i, layout.stripTop + layout.stripPadY);
+        ctx.lineTo(colW * i, layout.footerTop - layout.stripPadY);
+        ctx.stroke();
+      }
+    }
+  }
+
+  function drawPriceBadge(layout){
+    var label = priceLabel();
+    if (!label) return;
+    ctx.font = '700 34px ' + FONT_SANS;
+    var tw = trackedWidth(ctx, label, 2.5);
+    var padX = 34;
+    var bw = tw + padX * 2, bh = layout.priceH;
+    var bx = layout.W / 2 - bw / 2, by = layout.priceCY - bh / 2;
+    ctx.fillStyle = COLOR_RED;
+    roundRectPath(ctx, bx, by, bw, bh, 6);
+    ctx.fill();
+    ctx.fillStyle = COLOR_WHITE;
+    ctx.textBaseline = 'middle';
+    drawTracked(ctx, label, layout.W / 2, layout.priceCY + 2, 2.5, 'center');
+    ctx.textBaseline = 'alphabetic';
+  }
+
+  // ---------- main render ----------
+
+  function currentLayout(){ return LAYOUTS[state.format]; }
+
+  function render(){
+    var layout = currentLayout();
+    canvas.width = layout.W;
+    canvas.height = layout.H;
+
+    var greeting = state.festival ? fields.greeting.value.trim() : '';
+    var festivalOnly = state.festival && !state.img;
+
+    // ground
+    ctx.fillStyle = COLOR_NAVY;
+    ctx.fillRect(0, 0, layout.W, layout.H);
+
+    var f = layout.frame;
+    var maxTextWidth = layout.W - layout.margin * 2;
+
+    if (state.img){
+      // photo, clipped to frame
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(f.x, f.y, f.w, f.h);
+      ctx.clip();
+      var scale = currentScale(layout);
+      var drawW = state.natW * scale, drawH = state.natH * scale;
+      ctx.drawImage(state.img, f.x + state.offsetX, f.y + state.offsetY, drawW, drawH);
+      // fade the photo into the navy panel
+      var grad = ctx.createLinearGradient(0, f.y + f.h - layout.fadeH, 0, f.y + f.h);
+      grad.addColorStop(0, 'rgba(10,22,51,0)');
+      grad.addColorStop(1, 'rgba(10,22,51,1)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(f.x, f.y + f.h - layout.fadeH, f.w, layout.fadeH);
+      ctx.restore();
+
+      if (state.sold) drawSoldStamp(layout);
+
+      if (greeting){
+        var gSize = fitFontSize(ctx, greeting, '400', 0.04, maxTextWidth, 44, 22, FONT_SERIF, true);
+        ctx.font = 'italic 400 ' + gSize + 'px ' + FONT_SERIF;
+        ctx.fillStyle = COLOR_OFF;
+        ctx.save();
+        ctx.shadowColor = 'rgba(10,22,51,0.85)';
+        ctx.shadowBlur = 14;
+        drawTracked(ctx, greeting, layout.W / 2, layout.greetingY, gSize * 0.04, 'center');
+        ctx.restore();
+      }
+    } else if (festivalOnly){
+      // pure festival card: ghost monogram + large greeting, no photo needed
+      var fcx = f.x + f.w / 2, fcy = f.y + f.h / 2;
+      ctx.fillStyle = 'rgba(245,242,236,0.05)';
+      ctx.font = '400 560px ' + FONT_SERIF;
+      ctx.textAlign = 'center';
+      ctx.fillText('CA', fcx, fcy + 190);
+      ctx.textAlign = 'left';
+
+      var gText = greeting || 'Your greeting line';
+      var g2 = fitFontSize(ctx, gText, '400', 0.04, maxTextWidth, 62, 26, FONT_SERIF, true);
+      ctx.font = 'italic 400 ' + g2 + 'px ' + FONT_SERIF;
+      ctx.fillStyle = greeting ? COLOR_OFF : COLOR_DIM;
+      drawTracked(ctx, gText, fcx, fcy + g2 * 0.35, g2 * 0.04, 'center');
+
+      ctx.fillStyle = COLOR_RED;
+      ctx.fillRect(fcx - 36, fcy - g2 * 0.65 - 52, 72, 3);
+      ctx.fillRect(fcx - 36, fcy + g2 * 0.35 + 44, 72, 3);
+    } else {
+      // placeholder
+      ctx.strokeStyle = COLOR_HAIRLINE;
+      ctx.lineWidth = 2;
+      ctx.setLineDash([10, 10]);
+      ctx.strokeRect(f.x + 24, f.y + 24, f.w - 48, f.h - 48);
+      ctx.setLineDash([]);
+      ctx.fillStyle = COLOR_DIM;
+      ctx.font = '400 24px ' + FONT_SANS;
+      ctx.textAlign = 'center';
+      ctx.fillText('Upload a car photo', f.x + f.w / 2, f.y + f.h / 2);
+      ctx.textAlign = 'left';
+    }
+
+    // car name — elegant serif header
+    var name = fields.carName.value.trim();
+    if (name || !festivalOnly){
+      var display = name || 'Your car name';
+      var nameColor = name ? COLOR_OFF : COLOR_DIM;
+      var nameSize = fitFontSize(ctx, display, '400', 0.03, maxTextWidth, state.format === 'post' ? 76 : 80, 30, FONT_SERIF);
+      ctx.font = '400 ' + nameSize + 'px ' + FONT_SERIF;
+      ctx.fillStyle = nameColor;
+      drawTracked(ctx, display, layout.W / 2, layout.nameY, nameSize * 0.03, 'center');
+
+      // fuel as a quiet secondary line under the name
+      var fuel = fields.fuel.value.trim();
+      if (fuel){
+        var fuY = layout.nameY + layout.fuelGap;
+        var fuSize = fitFontSize(ctx, fuel.toUpperCase(), '400', 0.22, maxTextWidth, 23, 15, FONT_SANS);
+        ctx.font = '400 ' + fuSize + 'px ' + FONT_SANS;
+        ctx.fillStyle = COLOR_DIM;
+        drawTracked(ctx, fuel.toUpperCase(), layout.W / 2, fuY, fuSize * 0.22, 'center');
+      }
+    }
+
+    if (!festivalOnly || priceLabel()) drawPriceBadge(layout);
+    drawSpecStrip(layout, festivalOnly);
+    drawFooter(layout);
+
+    previewNote.textContent = layout.W + ' × ' + layout.H + ' · exports at full resolution';
+    updateDownloadState();
+  }
+
+  function updateDownloadState(){
+    var carReady = !!state.img && !!fields.carName.value.trim();
+    var festReady = state.festival && !!fields.greeting.value.trim();
+    var ready = carReady || festReady;
+    downloadBtn.disabled = !ready;
+    downloadHint.style.display = ready ? 'none' : 'block';
+  }
+
+  // ---------- image upload ----------
+
+  function loadFile(file){
+    if (!file || file.type.indexOf('image/') !== 0) return;
+    var reader = new FileReader();
+    reader.onload = function(e){
+      var img = new Image();
+      img.onload = function(){
+        state.img = img;
+        state.natW = img.naturalWidth;
+        state.natH = img.naturalHeight;
+        state.zoomFactor = 1;
+        var layout = currentLayout();
+        recenter(layout);
+        zoomSlider.value = 0;
+        zoomRow.style.display = 'flex';
+        dzTitle.textContent = 'Photo loaded';
+        dzSub.textContent = 'Tap to choose a different photo';
+        render();
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  fileInput.addEventListener('change', function(e){
+    if (e.target.files && e.target.files[0]) loadFile(e.target.files[0]);
+  });
+
+  dropzone.addEventListener('click', function(){ fileInput.click(); });
+  dropzone.addEventListener('keydown', function(e){
+    if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); fileInput.click(); }
+  });
+  ['dragenter', 'dragover'].forEach(function(evt){
+    dropzone.addEventListener(evt, function(e){
+      e.preventDefault(); e.stopPropagation();
+      dropzone.classList.add('drag-over');
+    });
+  });
+  ['dragleave', 'drop'].forEach(function(evt){
+    dropzone.addEventListener(evt, function(e){
+      e.preventDefault(); e.stopPropagation();
+      dropzone.classList.remove('drag-over');
+    });
+  });
+  dropzone.addEventListener('drop', function(e){
+    var dt = e.dataTransfer;
+    if (dt && dt.files && dt.files[0]) loadFile(dt.files[0]);
+  });
+
+  // ---------- logo upload ----------
+
+  function loadLogo(file){
+    if (!file || file.type.indexOf('image/') !== 0) return;
+    var reader = new FileReader();
+    reader.onload = function(e){
+      var img = new Image();
+      img.onload = function(){
+        state.logoImg = img;
+        logoTitle.textContent = 'Logo loaded';
+        logoSub.textContent = 'Tap to choose a different logo';
+        logoClearBtn.style.display = 'inline-flex';
+        render();
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  logoInput.addEventListener('change', function(e){
+    if (e.target.files && e.target.files[0]) loadLogo(e.target.files[0]);
+  });
+  logoDrop.addEventListener('click', function(){ logoInput.click(); });
+  logoDrop.addEventListener('keydown', function(e){
+    if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); logoInput.click(); }
+  });
+  ['dragenter', 'dragover'].forEach(function(evt){
+    logoDrop.addEventListener(evt, function(e){
+      e.preventDefault(); e.stopPropagation();
+      logoDrop.classList.add('drag-over');
+    });
+  });
+  ['dragleave', 'drop'].forEach(function(evt){
+    logoDrop.addEventListener(evt, function(e){
+      e.preventDefault(); e.stopPropagation();
+      logoDrop.classList.remove('drag-over');
+    });
+  });
+  logoDrop.addEventListener('drop', function(e){
+    var dt = e.dataTransfer;
+    if (dt && dt.files && dt.files[0]) loadLogo(dt.files[0]);
+  });
+  logoClearBtn.addEventListener('click', function(){
+    state.logoImg = null;
+    logoInput.value = '';
+    logoTitle.textContent = 'Upload logo PNG';
+    logoSub.textContent = 'Optional — replaces the default Classic Auto logo in the footer';
+    logoClearBtn.style.display = 'none';
+    render();
+  });
+
+  // ---------- zoom slider ----------
+
+  zoomSlider.addEventListener('input', function(){
+    var t = Number(zoomSlider.value) / 100; // 0..1
+    var newZoom = 1 + t * 1.6; // 1..2.6
+    applyZoom(newZoom, currentLayout());
+    render();
+  });
+
+  recenterBtn.addEventListener('click', function(){
+    zoomSlider.value = 0;
+    state.zoomFactor = 1;
+    recenter(currentLayout());
+    render();
+  });
+
+  // ---------- drag to reposition ----------
+
+  function canvasPoint(clientX, clientY){
+    var rect = canvas.getBoundingClientRect();
+    var scaleX = canvas.width / rect.width;
+    var scaleY = canvas.height / rect.height;
+    return { x: (clientX - rect.left) * scaleX, y: (clientY - rect.top) * scaleY };
+  }
+
+  canvas.addEventListener('pointerdown', function(e){
+    if (!state.img) return;
+    state.dragging = true;
+    canvas.classList.add('dragging');
+    canvas.setPointerCapture(e.pointerId);
+    var p = canvasPoint(e.clientX, e.clientY);
+    state.lastX = p.x; state.lastY = p.y;
+  });
+
+  canvas.addEventListener('pointermove', function(e){
+    if (!state.dragging) return;
+    var p = canvasPoint(e.clientX, e.clientY);
+    var dx = p.x - state.lastX, dy = p.y - state.lastY;
+    state.offsetX += dx; state.offsetY += dy;
+    state.lastX = p.x; state.lastY = p.y;
+    clampOffsets(currentLayout());
+    render();
+  });
+
+  function endDrag(){
+    if (!state.dragging) return;
+    state.dragging = false;
+    canvas.classList.remove('dragging');
+  }
+  canvas.addEventListener('pointerup', endDrag);
+  canvas.addEventListener('pointercancel', endDrag);
+  canvas.addEventListener('pointerleave', function(){ if (state.dragging) endDrag(); });
+
+  canvas.addEventListener('wheel', function(e){
+    if (!state.img) return;
+    e.preventDefault();
+    var t = Number(zoomSlider.value) / 100;
+    t += (e.deltaY < 0 ? 1 : -1) * 0.05;
+    t = Math.min(1, Math.max(0, t));
+    zoomSlider.value = t * 100;
+    applyZoom(1 + t * 1.6, currentLayout());
+    render();
+  }, { passive: false });
+
+  // ---------- format toggle ----------
+
+  function setFormat(fmt){
+    if (state.format === fmt) return;
+    state.format = fmt;
+    fmtPostBtn.classList.toggle('active', fmt === 'post');
+    fmtPostBtn.setAttribute('aria-pressed', fmt === 'post');
+    fmtStoryBtn.classList.toggle('active', fmt === 'story');
+    fmtStoryBtn.setAttribute('aria-pressed', fmt === 'story');
+    canvasFrame.classList.toggle('aspect-post', fmt === 'post');
+    canvasFrame.classList.toggle('aspect-story', fmt === 'story');
+    if (state.img) recenter(currentLayout());
+    render();
+  }
+  fmtPostBtn.addEventListener('click', function(){ setFormat('post'); });
+  fmtStoryBtn.addEventListener('click', function(){ setFormat('story'); });
+
+  // ---------- ownership segmented ----------
+
+  ownerBtns.forEach(function(btn){
+    btn.addEventListener('click', function(){
+      state.ownership = btn.getAttribute('data-owner');
+      ownerBtns.forEach(function(b){
+        var on = b === btn;
+        b.classList.toggle('active', on);
+        b.setAttribute('aria-pressed', on);
+      });
+      render();
+    });
+  });
+
+  // ---------- toggles ----------
+
+  function bindToggle(btn, key, after){
+    btn.addEventListener('click', function(){
+      state[key] = !state[key];
+      btn.classList.toggle('on', state[key]);
+      btn.setAttribute('aria-pressed', state[key]);
+      btn.textContent = state[key] ? 'On' : 'Off';
+      if (after) after();
+      render();
+    });
+  }
+  bindToggle(soldToggle, 'sold');
+  bindToggle(festToggle, 'festival', function(){
+    greetingWrap.style.display = state.festival ? 'block' : 'none';
+  });
+
+  // ---------- fields ----------
+
+  Object.keys(fields).forEach(function(key){
+    fields[key].addEventListener('input', render);
+  });
+
+  // ---------- download ----------
+
+  downloadBtn.addEventListener('click', function(){
+    var base = slugify(fields.carName.value) || slugify(fields.greeting.value) || 'classic-auto';
+    var suffix = state.format === 'story' ? '-story' : '';
+    var filename = base + '-classic-auto' + suffix + '.png';
+    var link = document.createElement('a');
+    link.download = filename;
+    link.href = canvas.toDataURL('image/png');
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  });
+
+  // ---------- init ----------
+
+  render();
+
+})();
+</script>
+</body>
+</html>

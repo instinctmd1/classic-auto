@@ -1,0 +1,1466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Find Your Classic — Classic Auto</title>
+<!--
+  CLASSIC AUTO — "Find Your Classic" customer quiz.
+  Single file: no external fonts, scripts, styles, or network requests.
+  Works fully offline via file:// — open this file directly in any browser.
+  Depends on cars.js sitting next to this file (loaded via a plain <script> tag below).
+
+  FLOW: intent -> (buy path: segment, budget, usage, seats, must-haves, timeline)
+        -> (trade-in, if selling/trading) -> transition -> shortlist teaser -> advisor close.
+  See README.md for the full step-by-step explanation and the reasoning behind
+  showing the shortlist BEFORE the advisor pitch (the "teaser-then-contact" pattern).
+-->
+<style>
+  :root{
+    --navy-deep:#0A1633;
+    --navy-royal:#2B3990;
+    --red-classic:#E11B22;
+    --white:#FFFFFF;
+    --cream:#F7F5F0;
+    --gold:#B08D57;
+    --font-display: Georgia, 'Times New Roman', serif;
+    --font-body: -apple-system, 'Segoe UI', system-ui, sans-serif;
+    --font-mono: 'Consolas', 'SF Mono', monospace;
+  }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--cream);
+    color:var(--navy-deep);
+    font-family:var(--font-body);
+    line-height:1.5;
+    min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+    overflow-x:hidden;
+  }
+
+  a{color:inherit;}
+
+  button{
+    font-family:inherit;
+    cursor:pointer;
+  }
+
+  /* Visible keyboard focus everywhere */
+  a:focus-visible,
+  button:focus-visible,
+  input:focus-visible,
+  [tabindex]:focus-visible{
+    outline:3px solid var(--red-classic);
+    outline-offset:2px;
+    border-radius:4px;
+  }
+
+  .app{
+    max-width:520px;
+    margin:0 auto;
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+    background:var(--white);
+    box-shadow:0 0 60px rgba(10,22,51,0.06);
+  }
+
+  /* ---------- Header / progress ---------- */
+  .topbar{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:18px 20px 8px;
+    gap:12px;
+  }
+  .brand-lockup{display:flex;align-items:center;justify-content:center;}
+  .logo-mark{height:34px;width:auto;display:block;}
+
+  .back-btn{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    background:none;
+    border:none;
+    color:var(--navy-royal);
+    font-size:0.92rem;
+    font-weight:600;
+    padding:10px 8px;
+    min-height:44px;
+    min-width:44px;
+    border-radius:8px;
+    visibility:hidden;
+  }
+  .back-btn.visible{visibility:visible;}
+  .back-btn:hover{background:rgba(43,57,144,0.06);}
+
+  .gauge-wrap{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    padding:4px 20px 10px;
+  }
+  .gauge-wrap.hidden{display:none;}
+  .gauge{width:180px;height:96px;display:block;}
+  .gauge-track{fill:none;stroke:rgba(10,22,51,0.10);stroke-width:10;stroke-linecap:round;}
+  .gauge-fill{fill:none;stroke:var(--red-classic);stroke-width:10;stroke-linecap:round;transition:stroke-dashoffset 0.5s ease;}
+  .gauge-label{
+    font-family:var(--font-mono);
+    font-variant-numeric:tabular-nums;
+    font-size:0.8rem;
+    color:var(--navy-royal);
+    margin-top:-38px;
+    letter-spacing:0.04em;
+  }
+  @media (prefers-reduced-motion: reduce){
+    .gauge-fill{transition:none;}
+  }
+
+  /* ---------- Screens ---------- */
+  main{flex:1;display:flex;flex-direction:column;}
+  .screen{
+    display:none;
+    flex-direction:column;
+    flex:1;
+    padding:8px 24px 32px;
+    animation:fadeIn 0.35s ease;
+  }
+  .screen.active{display:flex;}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
+  @media (prefers-reduced-motion: reduce){
+    .screen{animation:none;}
+  }
+
+  .q-eyebrow{
+    font-family:var(--font-mono);
+    font-variant-numeric:tabular-nums;
+    font-size:0.75rem;
+    letter-spacing:0.12em;
+    text-transform:uppercase;
+    color:var(--navy-royal);
+    margin:6px 0 6px;
+  }
+  .q-title{
+    font-family:var(--font-display);
+    font-size:1.65rem;
+    line-height:1.25;
+    color:var(--navy-deep);
+    margin:0 0 6px;
+  }
+  .q-sub{
+    font-size:0.95rem;
+    color:#4a5270;
+    margin:0 0 22px;
+  }
+
+  .group-label{
+    font-size:0.82rem;
+    font-weight:700;
+    letter-spacing:0.05em;
+    text-transform:uppercase;
+    color:var(--navy-royal);
+    margin:4px 0 10px;
+  }
+
+  .choices{
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+    margin-bottom:24px;
+  }
+  .choices.stacked{flex-direction:column;}
+
+  .chip{
+    appearance:none;
+    background:var(--white);
+    border:1.5px solid rgba(10,22,51,0.16);
+    color:var(--navy-deep);
+    border-radius:12px;
+    padding:13px 18px;
+    font-size:0.98rem;
+    font-weight:600;
+    min-height:44px;
+    text-align:left;
+    transition:border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+    flex:1 1 auto;
+  }
+  .choices:not(.stacked) .chip{flex:1 1 calc(50% - 5px);}
+  .chip:hover{border-color:var(--navy-royal);}
+  .chip[aria-checked="true"]{
+    background:var(--navy-deep);
+    border-color:var(--navy-deep);
+    color:var(--white);
+    box-shadow:inset 0 0 0 1px var(--navy-deep);
+  }
+  .chip:disabled{opacity:0.4;cursor:not-allowed;}
+  .chip.muted{opacity:0.4;}
+  .chip .chip-sub{
+    display:block;
+    font-weight:400;
+    font-size:0.78rem;
+    opacity:0.75;
+    margin-top:2px;
+  }
+
+  .field-label{
+    display:block;
+    font-size:0.85rem;
+    font-weight:700;
+    color:var(--navy-royal);
+    margin:14px 0 6px;
+  }
+  .field-input{
+    width:100%;
+    border:1.5px solid rgba(10,22,51,0.16);
+    border-radius:10px;
+    padding:12px 14px;
+    font-size:1rem;
+    min-height:44px;
+    margin-bottom:6px;
+    font-family:inherit;
+    color:var(--navy-deep);
+    background:var(--white);
+  }
+  .field-input:focus-visible{outline:3px solid var(--red-classic);outline-offset:2px;}
+
+  .promise-line{
+    background:rgba(176,141,87,0.14);
+    border:1px solid rgba(176,141,87,0.45);
+    border-radius:10px;
+    padding:12px 14px;
+    color:#7a5a2e;
+    font-weight:700;
+    font-size:0.92rem;
+    margin:0 0 20px;
+  }
+
+  .spacer{flex:1;}
+
+  .primary-btn{
+    background:var(--red-classic);
+    color:var(--white);
+    border:none;
+    border-radius:12px;
+    padding:15px 20px;
+    font-size:1.02rem;
+    font-weight:700;
+    min-height:52px;
+    width:100%;
+    letter-spacing:0.01em;
+    transition:opacity 0.15s ease, transform 0.1s ease;
+  }
+  .primary-btn:disabled{
+    background:rgba(10,22,51,0.14);
+    color:rgba(10,22,51,0.4);
+    cursor:not-allowed;
+  }
+  .primary-btn:not(:disabled):active{transform:scale(0.99);}
+
+  .secondary-btn{
+    background:var(--white);
+    color:var(--navy-royal);
+    border:1.5px solid var(--navy-royal);
+    border-radius:12px;
+    padding:14px 20px;
+    font-size:1rem;
+    font-weight:700;
+    min-height:52px;
+    width:100%;
+  }
+
+  .ghost-link{
+    background:none;
+    border:none;
+    color:var(--navy-royal);
+    font-size:0.9rem;
+    text-decoration:underline;
+    padding:10px;
+    min-height:44px;
+  }
+
+  /* ---------- Transition screen ---------- */
+  .transition-screen{
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+    gap:18px;
+  }
+  .dial-spin{
+    width:64px;height:64px;
+    border-radius:50%;
+    border:4px solid rgba(43,57,144,0.14);
+    border-top-color:var(--red-classic);
+    animation:spin 0.9s linear infinite;
+  }
+  @media (prefers-reduced-motion: reduce){
+    .dial-spin{animation:none;border-top-color:rgba(43,57,144,0.14);}
+  }
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .transition-text{
+    font-family:var(--font-display);
+    font-size:1.3rem;
+    color:var(--navy-deep);
+  }
+
+  /* ---------- Shortlist ---------- */
+  .shortlist-head{margin:6px 0 20px;}
+  .shortlist-head h1{
+    font-family:var(--font-display);
+    font-size:1.6rem;
+    margin:0 0 4px;
+  }
+  .shortlist-head p{margin:0;color:#4a5270;font-size:0.92rem;}
+
+  .sell-notice{
+    font-size:1rem;
+    color:var(--navy-deep);
+    line-height:1.6;
+    background:var(--cream);
+    border:1px solid rgba(10,22,51,0.1);
+    border-radius:14px;
+    padding:20px;
+  }
+
+  .car-card{
+    border-radius:14px;
+    background:var(--white);
+    border:1px solid rgba(10,22,51,0.10);
+    padding:18px;
+    margin-bottom:14px;
+    position:relative;
+    overflow:hidden;
+  }
+  .car-card::before{
+    content:"";
+    position:absolute;
+    left:0;top:0;bottom:0;
+    width:4px;
+    background:linear-gradient(180deg,var(--navy-royal),var(--navy-deep));
+  }
+  .car-card.best{
+    border-color:var(--gold);
+    padding-top:16px;
+  }
+  .car-card.best::before{background:linear-gradient(180deg,var(--gold),var(--red-classic));width:5px;}
+
+  .best-badge{
+    display:inline-block;
+    font-family:var(--font-mono);
+    font-size:0.68rem;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    color:#7a5a2e;
+    background:rgba(176,141,87,0.16);
+    border:1px solid rgba(176,141,87,0.5);
+    border-radius:999px;
+    padding:3px 10px;
+    margin-bottom:10px;
+  }
+
+  .car-rank{
+    font-family:var(--font-mono);
+    font-variant-numeric:tabular-nums;
+    font-size:0.75rem;
+    color:rgba(10,22,51,0.4);
+    margin-bottom:6px;
+  }
+
+  .car-name{
+    font-family:var(--font-display);
+    font-size:1.2rem;
+    margin:0 0 4px;
+    color:var(--navy-deep);
+  }
+  .car-strip{
+    font-family:var(--font-mono);
+    font-variant-numeric:tabular-nums;
+    font-size:0.82rem;
+    color:var(--navy-royal);
+    margin:0 0 8px;
+  }
+  .car-price{
+    font-family:var(--font-mono);
+    font-variant-numeric:tabular-nums;
+    font-size:1.35rem;
+    font-weight:700;
+    color:var(--red-classic);
+    margin:0 0 10px;
+  }
+  .car-why{
+    font-size:0.92rem;
+    color:#333c58;
+    margin:0;
+    line-height:1.5;
+  }
+
+  /* ---------- Advisor / closing screen ---------- */
+  .advisor-screen{padding-top:10px;}
+  .advisor-head{text-align:center;margin-bottom:22px;}
+  .advisor-head .payoff{
+    font-family:var(--font-display);
+    font-size:1.7rem;
+    color:var(--navy-deep);
+    margin:0 0 6px;
+  }
+  .advisor-head .payoff-sub{
+    color:#4a5270;
+    font-size:0.94rem;
+    margin:0;
+  }
+
+  .advisor-card{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    background:linear-gradient(135deg,var(--navy-deep),var(--navy-royal));
+    color:var(--white);
+    border-radius:16px;
+    padding:18px;
+    margin-bottom:16px;
+  }
+  .advisor-avatar{
+    width:56px;height:56px;
+    border-radius:50%;
+    background:rgba(255,255,255,0.14);
+    border:1.5px solid var(--gold);
+    display:flex;align-items:center;justify-content:center;
+    font-family:var(--font-display);
+    font-size:1.4rem;
+    flex-shrink:0;
+  }
+  .advisor-info .advisor-name{font-weight:700;font-size:1.02rem;}
+  .advisor-info .advisor-role{font-size:0.82rem;opacity:0.85;margin-top:2px;}
+
+  .advisor-promise{
+    text-align:center;
+    font-size:0.92rem;
+    color:var(--navy-royal);
+    font-weight:700;
+    margin:0 0 20px;
+    line-height:1.5;
+  }
+
+  .cta-stack{display:flex;flex-direction:column;gap:12px;margin-bottom:18px;}
+
+  .cta-whatsapp{
+    display:flex;align-items:center;justify-content:center;gap:10px;
+    background:var(--red-classic);color:var(--white);
+    border-radius:12px;padding:16px 20px;min-height:56px;
+    font-weight:700;font-size:1.04rem;text-decoration:none;
+  }
+  .cta-call{
+    display:flex;align-items:center;justify-content:center;gap:10px;
+    background:var(--white);color:var(--navy-royal);
+    border:1.5px solid var(--navy-royal);
+    border-radius:12px;padding:15px 20px;min-height:52px;
+    font-weight:700;font-size:1rem;text-decoration:none;
+  }
+  .cta-visit{
+    display:flex;align-items:center;justify-content:center;gap:10px;
+    background:none;color:var(--navy-deep);
+    border:1.5px dashed rgba(10,22,51,0.3);
+    border-radius:12px;padding:14px 20px;min-height:48px;
+    font-weight:600;font-size:0.95rem;text-decoration:none;
+  }
+
+  .trust-line{
+    text-align:center;
+    font-size:0.78rem;
+    color:rgba(10,22,51,0.5);
+    margin:4px 0 20px;
+    letter-spacing:0.02em;
+  }
+
+  .start-over{text-align:center;}
+
+  @media (min-width:640px){
+    body{padding:24px 0;}
+    .app{border-radius:20px;min-height:auto;}
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <div class="topbar">
+    <button class="back-btn" id="backBtn" type="button" aria-label="Go back to previous question">&larr; Back</button>
+    <div class="brand-lockup">
+      <svg class="logo-mark" viewBox="0 0 840 496" role="img" aria-label="Classic Auto — Since 1974" xmlns="http://www.w3.org/2000/svg">
+        <path d="M 100 12
+                 L 300 12
+                 L 300 88
+                 L 128 88
+                 Q 96 88 96 120
+                 L 96 238
+                 Q 96 268 128 268
+                 L 688 268
+                 Q 722 268 722 302
+                 L 722 310
+                 Q 722 344 688 344
+                 L 92 344
+                 Q 14 344 14 266
+                 L 14 98
+                 Q 14 12 100 12 Z" fill="#E11B22"/>
+        <g fill="#2B3990">
+          <polygon points="468,6 552,6 372,360 288,360"/>
+          <polygon points="468,6 552,6 758,360 674,360"/>
+          <polygon points="404,212 620,212 650,282 370,282"/>
+        </g>
+        <text x="712" y="30" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="26" font-weight="bold" font-style="italic" letter-spacing="1" fill="#E11B22">SINCE 1974</text>
+        <g fill="none" stroke="#2B3990" stroke-width="7" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M 540 400 q 30 -6 52 -18 q 40 -22 92 -24 q 56 -2 88 18 q 26 2 44 10 q 10 4 -2 8"/>
+          <path d="M 560 402 q 130 -12 250 -8"/>
+        </g>
+        <circle cx="612" cy="404" r="11" fill="#FFFFFF" stroke="#2B3990" stroke-width="7"/>
+        <circle cx="762" cy="402" r="11" fill="#FFFFFF" stroke="#2B3990" stroke-width="7"/>
+        <text x="420" y="482" text-anchor="middle" font-family="'Arial Black', Arial, sans-serif" font-weight="900" font-style="italic" font-size="88" fill="#E11B22" letter-spacing="0">CLASSIC-AUTO</text>
+      </svg>
+    </div>
+    <span style="width:44px"></span>
+  </div>
+
+  <div class="gauge-wrap" id="gaugeWrap">
+    <svg class="gauge" viewBox="0 0 200 100" role="img" aria-label="Quiz progress">
+      <path class="gauge-track" d="M10,95 A90,90 0 0 1 190,95"/>
+      <path class="gauge-fill" id="gaugeFill" d="M10,95 A90,90 0 0 1 190,95"
+            stroke-dasharray="282.7" stroke-dashoffset="282.7"/>
+    </svg>
+    <div class="gauge-label" id="gaugeLabel">STEP 1 / 7</div>
+  </div>
+
+  <main id="screens">
+
+    <!-- INTENT -->
+    <section class="screen" data-step="intent" aria-labelledby="qintent-title">
+      <p class="q-eyebrow">Question 1 of 7</p>
+      <h1 class="q-title" id="qintent-title">What brings you in today?</h1>
+      <p class="q-sub">Tell us what you need and we'll tailor the next few questions.</p>
+      <div class="choices stacked" role="radiogroup" aria-labelledby="qintent-title" data-field="intent"></div>
+      <div class="spacer"></div>
+      <button class="primary-btn" data-continue data-requires="intent" disabled>Continue</button>
+    </section>
+
+    <!-- SEGMENT -->
+    <section class="screen" data-step="segment" aria-labelledby="qsegment-title">
+      <p class="q-eyebrow">Question 2 of 7</p>
+      <h1 class="q-title" id="qsegment-title">What are you looking for?</h1>
+      <p class="q-sub">Pick the category that fits best, or let us show you everything.</p>
+      <div class="choices" role="radiogroup" aria-labelledby="qsegment-title" data-field="segment"></div>
+      <div class="spacer"></div>
+      <button class="primary-btn" data-continue data-requires="segment" disabled>Continue</button>
+    </section>
+
+    <!-- BUDGET -->
+    <section class="screen" data-step="budget" aria-labelledby="qbudget-title">
+      <p class="q-eyebrow">Question 3 of 7</p>
+      <h1 class="q-title" id="qbudget-title">What's your budget?</h1>
+      <p class="q-sub">In ₹ lakh. The count on each option is live from our current stock.</p>
+      <div class="choices stacked" role="radiogroup" aria-labelledby="qbudget-title" data-field="budget"></div>
+      <div class="spacer"></div>
+      <button class="primary-btn" data-continue data-requires="budget" disabled>Continue</button>
+    </section>
+
+    <!-- USAGE -->
+    <section class="screen" data-step="usage" aria-labelledby="qusage-title">
+      <p class="q-eyebrow">Question 4 of 7</p>
+      <h1 class="q-title" id="qusage-title">How will you mostly use it?</h1>
+      <p class="q-sub">Two quick picks — how you drive, and roughly how much.</p>
+      <p class="group-label">Mostly&hellip;</p>
+      <div class="choices" role="radiogroup" aria-label="Usage type" data-field="usageType"></div>
+      <p class="group-label">Roughly how many kms a year?</p>
+      <div class="choices" role="radiogroup" aria-label="Yearly kilometres" data-field="usageKms"></div>
+      <div class="spacer"></div>
+      <button class="primary-btn" data-continue data-requires="usageType,usageKms" disabled>Continue</button>
+    </section>
+
+    <!-- SEATS -->
+    <section class="screen" data-step="seats" aria-labelledby="qseats-title">
+      <p class="q-eyebrow">Question 5 of 7</p>
+      <h1 class="q-title" id="qseats-title">How many seats do you need?</h1>
+      <p class="q-sub">Think about who usually rides with you.</p>
+      <div class="choices" role="radiogroup" aria-labelledby="qseats-title" data-field="seats"></div>
+      <div class="spacer"></div>
+      <button class="primary-btn" data-continue data-requires="seats" disabled>Continue</button>
+    </section>
+
+    <!-- MUST-HAVES -->
+    <section class="screen" data-step="musthaves" aria-labelledby="qmusthaves-title">
+      <p class="q-eyebrow">Question 6 of 7</p>
+      <h1 class="q-title" id="qmusthaves-title">Anything on your must-have list?</h1>
+      <p class="q-sub">Pick as many as you like, or tell us there's nothing specific.</p>
+      <div class="choices" role="group" aria-labelledby="qmusthaves-title" id="mustHaveChoices"></div>
+      <div class="spacer"></div>
+      <button class="primary-btn" data-continue data-requires="mustHaves" disabled>Continue</button>
+    </section>
+
+    <!-- TIMELINE -->
+    <section class="screen" data-step="timeline" aria-labelledby="qtimeline-title">
+      <p class="q-eyebrow">Question 7 of 7</p>
+      <h1 class="q-title" id="qtimeline-title">When are you looking to decide?</h1>
+      <p class="q-sub">This helps us prioritise your visit.</p>
+      <div class="choices" role="radiogroup" aria-labelledby="qtimeline-title" data-field="timeline"></div>
+      <div class="spacer"></div>
+      <button class="primary-btn" data-continue data-requires="timeline" disabled>See my shortlist</button>
+    </section>
+
+    <!-- TRADE-IN (only reached when selling or trading in) -->
+    <section class="screen" data-step="tradein" aria-labelledby="qtradein-title">
+      <p class="q-eyebrow">Question 1 of 1</p>
+      <h1 class="q-title" id="qtradein-title">Tell us about your current car</h1>
+      <p class="promise-line">Our offer within hours &mdash; same-day payment.</p>
+
+      <label class="field-label" for="tiMakeModel">Make &amp; model</label>
+      <input class="field-input" type="text" id="tiMakeModel" placeholder="e.g. Hyundai i20 Sportz" autocomplete="off">
+
+      <label class="field-label" for="tiYear">Year</label>
+      <input class="field-input" type="number" id="tiYear" min="1990" max="2026" placeholder="e.g. 2019" inputmode="numeric">
+
+      <label class="field-label" for="tiKms">Kilometres driven</label>
+      <input class="field-input" type="number" id="tiKms" min="0" placeholder="e.g. 45000" inputmode="numeric">
+
+      <p class="field-label" id="tiOwnersLabel">Owners</p>
+      <div class="choices" role="radiogroup" aria-labelledby="tiOwnersLabel" id="tiOwners"></div>
+
+      <div class="spacer"></div>
+      <button class="primary-btn" data-continue data-requires="tradeIn.makeModel,tradeIn.year,tradeIn.kms,tradeIn.owners" disabled>Continue</button>
+    </section>
+
+    <!-- TRANSITION -->
+    <section class="screen transition-screen" data-step="transition">
+      <div class="dial-spin" aria-hidden="true"></div>
+      <p class="transition-text" id="transitionText">Curating from our inventory&hellip;</p>
+    </section>
+
+    <!-- SHORTLIST (teaser — always rendered before the advisor close) -->
+    <section class="screen" data-step="shortlist" aria-labelledby="shortlist-title">
+      <div class="shortlist-head">
+        <h1 id="shortlist-title">Your shortlist</h1>
+        <p id="shortlistSub">Matched from our current inventory, ranked by fit.</p>
+      </div>
+      <div id="carList"></div>
+      <div class="spacer"></div>
+      <button class="primary-btn" id="toAdvisorBtn" type="button">Talk to an advisor</button>
+    </section>
+
+    <!-- ADVISOR / CLOSING -->
+    <section class="screen advisor-screen" data-step="advisor" aria-labelledby="advisor-title">
+      <div class="advisor-head">
+        <p class="payoff" id="advisor-title">Your advisor will take it from here.</p>
+        <p class="payoff-sub" id="advisorSub">Every shortlist ends with a real conversation, not a checkout button.</p>
+      </div>
+
+      <div class="advisor-card">
+        <div class="advisor-avatar" aria-hidden="true">R</div>
+        <div class="advisor-info">
+          <div class="advisor-name">Rajesh — Senior Advisor</div>
+          <div class="advisor-role">12 years at Classic Auto</div>
+        </div>
+      </div>
+
+      <p class="advisor-promise">Your consultant calls within 30 minutes, 7 am&ndash;9 pm &mdash; Classic Auto, Since 1974</p>
+
+      <div class="cta-stack">
+        <a class="cta-whatsapp" id="whatsappBtn" href="#" target="_blank" rel="noopener">WhatsApp us now</a>
+        <a class="cta-call" href="tel:+919588990000">Call +91 95889 90000</a>
+        <!-- Cal.com booking link goes here once the showroom booking calendar is set up -->
+        <a class="cta-visit" href="#">Book a showroom visit</a>
+      </div>
+
+      <p class="trust-line">Classic Auto, Malad West &middot; 150-point checked &middot; Since 1974</p>
+
+      <div class="start-over">
+        <button class="ghost-link" id="startOverBtn" type="button">Start over</button>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+/*
+  ============================================================================
+  CLASSIC AUTO — INVENTORY FILE (cars.js)
+  ============================================================================
+
+  HOW TO ADD OR EDIT A CAR — no coding knowledge needed, just careful copying.
+
+  1. Find the car you want to change, or copy one whole block below (from the
+     opening { to the closing }, including the comma after it) and paste it
+     right after it, still inside the square brackets [ ] that hold CARS.
+  2. Change the details inside the quotes (or numbers) to match the real car.
+  3. Save the file, then refresh customer.html or presenter.html in your
+     browser to see the change. No other steps needed.
+
+  FIELD NOTES:
+  - "name"          Car name as customers should see it, e.g. "Maruti Suzuki WagonR"
+  - "year"           Whole number, e.g. 2019 (no quotes)
+  - "kms"            Kilometres driven so far, as a plain number (no commas,
+                      no quotes) e.g. 42000 — the tools add the "," formatting
+                      and "km" label automatically.
+  - "owners"         How many owners so far, as a plain number, e.g. 1
+  - "fuel"           Exactly one of: "Petrol", "Diesel", "CNG"
+  - "transmission"   Exactly one of: "Manual", "Automatic"
+  - "bodyType"       e.g. "Hatchback", "Sedan", "SUV", "MPV"
+  - "brand"          Just the maker's name, e.g. "Maruti Suzuki", "BMW"
+  - "seats"          Plain number: 4, 5, 6, or 7
+  - "priceLakh"      Price in ₹ lakh, as a plain number (no quotes, no commas).
+                      Decimals are fine, e.g. 12.5 means ₹12.5 lakh.
+  - "tags"           A list of words describing who the car suits. Use ONLY
+                      words from this set (spelling matters, all lowercase):
+                        "family"      — spacious, comfortable for a household
+                        "luxury"      — premium marque / high-spec trim
+                        "first-car"   — easy, forgiving, budget-friendly
+                        "chauffeur"   — comfortable being driven, rear legroom
+                        "city"        — compact, easy to park, efficient in traffic
+                        "highway"     — stable and comfortable at speed, long trips
+                        "sunroof"     — car has a sunroof/moonroof fitted
+                      A car can (and usually should) have 2-3 tags, plus
+                      "sunroof" if it applies.
+
+  MUST-HAVES (consultation tools' Q6) — how each chip is checked against a car:
+    - "Automatic"           → car.transmission === "Automatic"
+    - "Sunroof"              → the "sunroof" tag above
+    - "CNG/Hybrid-Electric"  → car.fuel === "CNG" or car.fuel === "Electric"
+                               (no Electric cars in stock yet — that's fine,
+                               the tool relaxes honestly instead of hiding the chip)
+    - brand chips            → car.brand matches exactly
+    - "No must-haves"        → clears/disables the other chips, no filtering
+
+  A NOTE FOR WHOEVER MAINTAINS THIS FILE LATER:
+  This file is a separate, temporary inventory used only by the consultation
+  tools (customer.html and presenter.html) in this folder. Once the main
+  Classic Auto website has its own cars.js (in ../website/), the two files
+  should be reconciled/merged into one shared source of truth so staff aren't
+  updating inventory in two places.
+  ============================================================================
+*/
+
+const CARS = [
+  {
+    id: "wagonr-vxi",
+    name: "Maruti Suzuki WagonR",
+    year: 2018,
+    kms: 42000,
+    owners: 1,
+    fuel: "Petrol",
+    transmission: "Manual",
+    bodyType: "Hatchback",
+    brand: "Maruti Suzuki",
+    seats: 5,
+    priceLakh: 4.1,
+    tags: ["first-car", "city"]
+  }, // SAMPLE — replace with real inventory
+  {
+    id: "swift-vxi",
+    name: "Maruti Suzuki Swift",
+    year: 2020,
+    kms: 28500,
+    owners: 1,
+    fuel: "Petrol",
+    transmission: "Manual",
+    bodyType: "Hatchback",
+    brand: "Maruti Suzuki",
+    seats: 5,
+    priceLakh: 5.9,
+    tags: ["first-car", "city"]
+  }, // SAMPLE — replace with real inventory
+  {
+    id: "i20-asta",
+    name: "Hyundai i20 Asta",
+    year: 2021,
+    kms: 19800,
+    owners: 1,
+    fuel: "Petrol",
+    transmission: "Automatic",
+    bodyType: "Hatchback",
+    brand: "Hyundai",
+    seats: 5,
+    priceLakh: 8.4,
+    tags: ["city", "first-car", "sunroof"]
+  }, // SAMPLE — replace with real inventory
+  {
+    id: "city-vx",
+    name: "Honda City",
+    year: 2019,
+    kms: 38200,
+    owners: 2,
+    fuel: "Petrol",
+    transmission: "Automatic",
+    bodyType: "Sedan",
+    brand: "Honda",
+    seats: 5,
+    priceLakh: 9.8,
+    tags: ["chauffeur", "city"]
+  }, // SAMPLE — replace with real inventory
+  {
+    id: "creta-sx",
+    name: "Hyundai Creta",
+    year: 2021,
+    kms: 24100,
+    owners: 1,
+    fuel: "Diesel",
+    transmission: "Automatic",
+    bodyType: "SUV",
+    brand: "Hyundai",
+    seats: 5,
+    priceLakh: 14.5,
+    tags: ["family", "highway", "sunroof"]
+  }, // SAMPLE — replace with real inventory
+  {
+    id: "ertiga-zxi",
+    name: "Maruti Suzuki Ertiga",
+    year: 2020,
+    kms: 31600,
+    owners: 1,
+    fuel: "Petrol",
+    transmission: "Manual",
+    bodyType: "MPV",
+    brand: "Maruti Suzuki",
+    seats: 7,
+    priceLakh: 9.2,
+    tags: ["family", "highway"]
+  }, // SAMPLE — replace with real inventory
+  {
+    id: "innova-crysta",
+    name: "Toyota Innova Crysta",
+    year: 2020,
+    kms: 45300,
+    owners: 1,
+    fuel: "Diesel",
+    transmission: "Automatic",
+    bodyType: "MPV",
+    brand: "Toyota",
+    seats: 7,
+    priceLakh: 19.8,
+    tags: ["family", "chauffeur", "highway", "sunroof"]
+  }, // SAMPLE — replace with real inventory
+  {
+    id: "5series-luxline",
+    name: "BMW 5 Series",
+    year: 2020,
+    kms: 26700,
+    owners: 1,
+    fuel: "Diesel",
+    transmission: "Automatic",
+    bodyType: "Sedan",
+    brand: "BMW",
+    seats: 5,
+    priceLakh: 42.0,
+    tags: ["luxury", "chauffeur", "highway", "sunroof"]
+  }, // SAMPLE — replace with real inventory
+  {
+    id: "x5-xdrive30d",
+    name: "BMW X5",
+    year: 2021,
+    kms: 18900,
+    owners: 1,
+    fuel: "Diesel",
+    transmission: "Automatic",
+    bodyType: "SUV",
+    brand: "BMW",
+    seats: 5,
+    priceLakh: 64.0,
+    tags: ["luxury", "family", "highway", "sunroof"]
+  }, // SAMPLE — replace with real inventory
+  {
+    id: "gle-450",
+    name: "Mercedes-Benz GLE",
+    year: 2022,
+    kms: 12300,
+    owners: 1,
+    fuel: "Diesel",
+    transmission: "Automatic",
+    bodyType: "SUV",
+    brand: "Mercedes-Benz",
+    seats: 5,
+    priceLakh: 72.5,
+    tags: ["luxury", "family", "chauffeur", "sunroof"]
+  } // SAMPLE — replace with real inventory
+];
+
+</script>
+<script>
+(function(){
+  "use strict";
+
+  /* ============================================================
+     STEP DEFINITIONS — options shown for each question.
+     Editing labels here changes only what the customer sees;
+     the "value" is what the matching logic reads.
+     ============================================================ */
+  var INTENT_OPTIONS = [
+    {id:"buy", label:"Buy a car", sub:"Find the right car from our stock"},
+    {id:"sell", label:"Sell my car", sub:"Get a same-day valuation, no purchase needed"},
+    {id:"buy-trade", label:"Buy + trade-in my current car", sub:"Upgrade, and we'll value what you're driving now"}
+  ];
+
+  var SEGMENT_OPTIONS = [
+    {id:"Hatchback", label:"Hatchback"},
+    {id:"Sedan", label:"Sedan"},
+    {id:"SUV", label:"SUV"},
+    {id:"Luxury", label:"Luxury"},
+    {id:"Electric", label:"Electric"},
+    {id:"all", label:"Show me everything"}
+  ];
+
+  var BUDGET_BANDS = [
+    {id:"b1", label:"Under ₹5L", min:0, max:5},
+    {id:"b2", label:"₹5L – ₹10L", min:5, max:10},
+    {id:"b3", label:"₹10L – ₹20L", min:10, max:20},
+    {id:"b4", label:"₹20L – ₹40L", min:20, max:40},
+    {id:"b5", label:"₹40L and above", min:40, max:Infinity}
+  ];
+
+  var USAGE_TYPE_OPTIONS = [
+    {id:"city", label:"City runs", sub:"Daily commute, errands, traffic"},
+    {id:"highway", label:"Highway trips", sub:"Long distance, out-of-town drives"},
+    {id:"mixed", label:"A mix of both", sub:"Some city, some highway"}
+  ];
+  var USAGE_KMS_OPTIONS = [
+    {id:"under10k", label:"Under 10,000/yr"},
+    {id:"10to20k", label:"10,000 – 20,000/yr"},
+    {id:"over20k", label:"20,000+/yr"}
+  ];
+
+  var SEAT_BANDS = [
+    {id:"s24", label:"2–4 seats"},
+    {id:"s5", label:"5 seats"},
+    {id:"s67", label:"6–7 seats"}
+  ];
+
+  var TIMELINE_OPTIONS = [
+    {id:"this-week", label:"This week", sub:"We'll treat your visit as priority"},
+    {id:"this-month", label:"This month", sub:"Good runway to compare a few"},
+    {id:"exploring", label:"Just exploring", sub:"No rush, just looking"}
+  ];
+
+  var OWNER_OPTIONS = [
+    {id:"1", label:"1"}, {id:"2", label:"2"}, {id:"3", label:"3"}, {id:"4+", label:"4+"}
+  ];
+
+  var USAGE_PHRASES = {
+    "city":"easy to live with in daily city traffic",
+    "highway":"settles in comfortably on long highway runs",
+    "mixed":"comfortable whether you're stuck in traffic or out on the highway"
+  };
+
+  /* ============================================================
+     STATE
+     ============================================================ */
+  var currentIndex = 0;
+  var answers = {
+    intent:null, segment:null, budget:null, usageType:null, usageKms:null,
+    seats:null, mustHaves:[], mustHavesTouched:false, timeline:null, priority:false,
+    tradeIn:{makeModel:null, year:null, kms:null, owners:null}
+  };
+  var lastShortlist = [];
+  var reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  /* Path is decided once "intent" is answered — see buildPath(). Defaulting
+     to the "buy" path keeps the progress gauge/eyebrow sensible before the
+     customer has answered anything. */
+  function buildPath(intent){
+    if(intent === "sell") return ["intent","tradein","transition","shortlist","advisor"];
+    if(intent === "buy-trade") return ["intent","segment","budget","usage","seats","musthaves","timeline","tradein","transition","shortlist","advisor"];
+    return ["intent","segment","budget","usage","seats","musthaves","timeline","transition","shortlist","advisor"];
+  }
+  function questionKeysOf(path){
+    return path.filter(function(k){ return ["transition","shortlist","advisor"].indexOf(k) === -1; });
+  }
+  var CURRENT_PATH = buildPath("buy");
+
+  /* ============================================================
+     ANSWER HELPERS — support dotted paths like "tradeIn.makeModel"
+     so the same continue/validation logic works for every field.
+     ============================================================ */
+  function getAnswer(path){
+    var parts = path.split(".");
+    var v = answers;
+    for(var i=0;i<parts.length;i++){ if(v===null||v===undefined) return undefined; v = v[parts[i]]; }
+    return v;
+  }
+  function setAnswer(path, value){
+    var parts = path.split(".");
+    var obj = answers;
+    for(var i=0;i<parts.length-1;i++){ obj = obj[parts[i]]; }
+    obj[parts[parts.length-1]] = value;
+  }
+  function isAnswered(path){
+    if(path === "mustHaves") return answers.mustHavesTouched === true;
+    var v = getAnswer(path);
+    return v !== null && v !== undefined && v !== "";
+  }
+  function updateContinueForScreen(screen){
+    if(!screen) return;
+    var contBtn = screen.querySelector("[data-continue]");
+    if(!contBtn) return;
+    var req = (contBtn.dataset.requires||"").split(",").map(function(s){return s.trim();}).filter(Boolean);
+    contBtn.disabled = req.length ? !req.every(isAnswered) : false;
+  }
+
+  /* ============================================================
+     BUILD BRAND LIST FROM INVENTORY (so it stays in sync with cars.js)
+     ============================================================ */
+  function uniqueBrands(){
+    var seen = {};
+    var list = [];
+    CARS.forEach(function(c){
+      if(!seen[c.brand]){ seen[c.brand]=true; list.push(c.brand); }
+    });
+    return list;
+  }
+
+  /* ============================================================
+     RENDER CHIP GROUPS (single-select)
+     ============================================================ */
+  function renderChips(container, options, field, getLabel, getSub){
+    container.innerHTML = "";
+    options.forEach(function(opt){
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "chip";
+      btn.setAttribute("role","radio");
+      btn.setAttribute("aria-checked", getAnswer(field)===opt.id ? "true" : "false");
+      btn.dataset.value = opt.id !== undefined ? opt.id : opt.label;
+      var label = getLabel ? getLabel(opt) : opt.label;
+      var sub = getSub ? getSub(opt) : opt.sub;
+      btn.innerHTML = label + (sub ? '<span class="chip-sub">'+sub+'</span>' : "");
+      btn.addEventListener("click", function(){
+        var siblings = container.querySelectorAll(".chip");
+        siblings.forEach(function(s){ s.setAttribute("aria-checked","false"); });
+        btn.setAttribute("aria-checked","true");
+        setAnswer(field, btn.dataset.value);
+        if(field === "timeline"){ answers.priority = (btn.dataset.value === "this-week"); }
+        updateContinueForScreen(container.closest(".screen"));
+      });
+      container.appendChild(btn);
+    });
+  }
+
+  /* Must-haves is multi-select, with "No must-haves" clearing/disabling
+     the rest — implemented separately from renderChips() above. */
+  function buildMustHaveOptions(){
+    var opts = [
+      {id:"automatic", label:"Automatic"},
+      {id:"sunroof", label:"Sunroof"},
+      {id:"cng", label:"CNG / Hybrid-Electric"}
+    ];
+    uniqueBrands().forEach(function(b){ opts.push({id:"brand:"+b, label:b}); });
+    opts.push({id:"none", label:"No must-haves", sub:"Keep it open"});
+    return opts;
+  }
+  function renderMustHaveChips(container){
+    container.innerHTML = "";
+    buildMustHaveOptions().forEach(function(opt){
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "chip";
+      btn.setAttribute("role","checkbox");
+      btn.setAttribute("aria-checked","false");
+      btn.dataset.value = opt.id;
+      btn.innerHTML = opt.label + (opt.sub ? '<span class="chip-sub">'+opt.sub+'</span>' : "");
+      btn.addEventListener("click", function(){
+        if(opt.id === "none"){
+          var alreadyNone = btn.getAttribute("aria-checked") === "true";
+          answers.mustHaves = [];
+          if(alreadyNone){
+            // toggle "No must-haves" back off — re-enable everything, nothing selected
+            btn.setAttribute("aria-checked","false");
+            container.querySelectorAll(".chip").forEach(function(c){ c.classList.remove("muted"); });
+          } else {
+            container.querySelectorAll(".chip").forEach(function(c){
+              if(c === btn){ c.setAttribute("aria-checked","true"); c.classList.remove("muted"); }
+              else { c.setAttribute("aria-checked","false"); c.classList.add("muted"); }
+            });
+          }
+        } else {
+          // Clicking any real chip always clears "No must-haves" and re-enables the group
+          // — even chips currently shown muted stay fully clickable (opacity-only, not
+          // native disabled) precisely so this undo path always works.
+          var noneBtn = container.querySelector('[data-value="none"]');
+          if(noneBtn){ noneBtn.setAttribute("aria-checked","false"); }
+          container.querySelectorAll(".chip").forEach(function(c){ c.classList.remove("muted"); });
+          var checked = btn.getAttribute("aria-checked") === "true";
+          btn.setAttribute("aria-checked", checked ? "false" : "true");
+          var idx = answers.mustHaves.indexOf(opt.id);
+          if(checked){ if(idx>-1) answers.mustHaves.splice(idx,1); }
+          else { if(idx===-1) answers.mustHaves.push(opt.id); }
+        }
+        answers.mustHavesTouched = true;
+        updateContinueForScreen(container.closest(".screen"));
+      });
+      container.appendChild(btn);
+    });
+  }
+
+  /* Budget chips are re-rendered every time the step is shown, since the
+     live inventory count depends on the segment already chosen. */
+  function matchesSegment(car){
+    var seg = answers.segment;
+    if(!seg || seg === "all") return null; // no opinion — "show me everything"
+    if(seg === "Luxury") return car.tags.indexOf("luxury") !== -1;
+    if(seg === "Electric") return car.fuel === "Electric";
+    return car.bodyType === seg;
+  }
+  function renderBudgetChips(){
+    var container = document.querySelector('[data-field="budget"]');
+    container.innerHTML = "";
+    BUDGET_BANDS.forEach(function(band){
+      var count = CARS.filter(function(c){
+        return matchesSegment(c) !== false && c.priceLakh >= band.min && c.priceLakh <= band.max;
+      }).length;
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "chip";
+      btn.setAttribute("role","radio");
+      btn.setAttribute("aria-checked", answers.budget===band.id ? "true" : "false");
+      btn.dataset.value = band.id;
+      btn.innerHTML = band.label + '<span class="chip-sub">'+count+' car'+(count===1?'':'s')+' in stock right now</span>';
+      btn.addEventListener("click", function(){
+        container.querySelectorAll(".chip").forEach(function(s){ s.setAttribute("aria-checked","false"); });
+        btn.setAttribute("aria-checked","true");
+        setAnswer("budget", band.id);
+        updateContinueForScreen(container.closest(".screen"));
+      });
+      container.appendChild(btn);
+    });
+    updateContinueForScreen(container.closest(".screen"));
+  }
+
+  renderChips(document.querySelector('[data-field="intent"]'), INTENT_OPTIONS, "intent");
+  renderChips(document.querySelector('[data-field="segment"]'), SEGMENT_OPTIONS, "segment");
+  renderChips(document.querySelector('[data-field="usageType"]'), USAGE_TYPE_OPTIONS, "usageType");
+  renderChips(document.querySelector('[data-field="usageKms"]'), USAGE_KMS_OPTIONS, "usageKms");
+  renderChips(document.querySelector('[data-field="seats"]'), SEAT_BANDS, "seats");
+  renderMustHaveChips(document.getElementById("mustHaveChoices"));
+  renderChips(document.querySelector('[data-field="timeline"]'), TIMELINE_OPTIONS, "timeline");
+  renderChips(document.getElementById("tiOwners"), OWNER_OPTIONS, "tradeIn.owners");
+
+  document.getElementById("tiMakeModel").addEventListener("input", function(){
+    setAnswer("tradeIn.makeModel", this.value.trim());
+    updateContinueForScreen(this.closest(".screen"));
+  });
+  document.getElementById("tiYear").addEventListener("input", function(){
+    setAnswer("tradeIn.year", this.value);
+    updateContinueForScreen(this.closest(".screen"));
+  });
+  document.getElementById("tiKms").addEventListener("input", function(){
+    setAnswer("tradeIn.kms", this.value);
+    updateContinueForScreen(this.closest(".screen"));
+  });
+
+  /* ============================================================
+     NAVIGATION
+     ============================================================ */
+  var screens = {};
+  document.querySelectorAll(".screen").forEach(function(s){
+    screens[s.dataset.step] = s;
+  });
+  var backBtn = document.getElementById("backBtn");
+  var gaugeWrap = document.getElementById("gaugeWrap");
+  var gaugeFill = document.getElementById("gaugeFill");
+  var gaugeLabel = document.getElementById("gaugeLabel");
+  var GAUGE_LEN = 282.7;
+
+  function showStep(index){
+    currentIndex = index;
+    var key = CURRENT_PATH[index];
+    Object.keys(screens).forEach(function(k){ screens[k].classList.remove("active"); });
+    screens[key].classList.add("active");
+
+    var qKeys = questionKeysOf(CURRENT_PATH);
+    var qPos = qKeys.indexOf(key);
+    var isQuestion = qPos !== -1;
+    gaugeWrap.classList.toggle("hidden", !isQuestion);
+    if(isQuestion){
+      var n = qPos+1, total = qKeys.length;
+      gaugeFill.setAttribute("stroke-dashoffset", String(GAUGE_LEN * (1-n/total)));
+      gaugeLabel.textContent = "STEP " + n + " / " + total;
+      var eyebrow = screens[key].querySelector(".q-eyebrow");
+      if(eyebrow) eyebrow.textContent = "Question " + n + " of " + total;
+    }
+    backBtn.classList.toggle("visible", index > 0 && isQuestion);
+
+    if(key === "budget") renderBudgetChips();
+
+    if(key === "transition"){
+      document.getElementById("transitionText").textContent =
+        answers.intent === "sell" ? "Preparing your valuation…" : "Curating from our inventory…";
+      var delay = reducedMotion ? 250 : 1100;
+      window.setTimeout(function(){
+        computeShortlist();
+        goTo("shortlist");
+      }, delay);
+    }
+    if(key === "shortlist"){
+      renderShortlist();
+    }
+    if(key === "advisor"){
+      updateAdvisorCopy();
+      buildWhatsAppLink();
+    }
+    // Move focus to the new screen's heading for keyboard/screen-reader users
+    var heading = screens[key].querySelector("h1, .transition-text");
+    if(heading){ heading.setAttribute("tabindex","-1"); heading.focus({preventScroll:true}); }
+    window.scrollTo(0,0);
+  }
+
+  function goTo(key){
+    showStep(CURRENT_PATH.indexOf(key));
+  }
+
+  document.querySelectorAll("[data-continue]").forEach(function(btn){
+    btn.addEventListener("click", function(){
+      var key = CURRENT_PATH[currentIndex];
+      if(key === "intent"){ CURRENT_PATH = buildPath(answers.intent); }
+      showStep(currentIndex+1);
+    });
+  });
+
+  backBtn.addEventListener("click", function(){
+    if(currentIndex > 0) showStep(currentIndex-1);
+  });
+
+  document.getElementById("toAdvisorBtn").addEventListener("click", function(){
+    goTo("advisor");
+  });
+
+  document.getElementById("startOverBtn").addEventListener("click", function(){
+    answers = {
+      intent:null, segment:null, budget:null, usageType:null, usageKms:null,
+      seats:null, mustHaves:[], mustHavesTouched:false, timeline:null, priority:false,
+      tradeIn:{makeModel:null, year:null, kms:null, owners:null}
+    };
+    CURRENT_PATH = buildPath("buy");
+    document.querySelectorAll(".chip").forEach(function(c){ c.setAttribute("aria-checked","false"); c.disabled=false; c.classList.remove("muted"); });
+    document.getElementById("tiMakeModel").value = "";
+    document.getElementById("tiYear").value = "";
+    document.getElementById("tiKms").value = "";
+    document.querySelectorAll("[data-continue]").forEach(function(b){ b.disabled = true; });
+    showStep(0);
+  });
+
+  /* ============================================================
+     MATCHING / SCORING
+     Transparent, additive score — no car is ever hard-excluded, so we
+     can always relax constraints honestly instead of showing a dead end:
+       budget       32 pts  (strongest — never touched by must-haves etc.)
+       segment      20 pts  (body style / luxury / electric from Q2)
+       usage        16 pts  (city/highway/mixed, from Q4)
+       seats        12 pts
+       brand        10 pts  (from a must-have brand chip, Q6)
+       CNG/hybrid    6 pts  (from a must-have chip, Q6)
+       automatic     4 pts  (from a must-have chip, Q6)
+       sunroof       4 pts  (from a must-have chip, Q6)
+       priority     +3 pts  (small tie-break nudge for "this week", Q7 — never dominant)
+     ============================================================ */
+  function scoreCar(car, a){
+    var score = 0;
+    var d = {};
+
+    var band = BUDGET_BANDS.filter(function(b){return b.id===a.budget;})[0];
+    if(band){
+      if(car.priceLakh >= band.min && car.priceLakh <= band.max){
+        d.budgetStatus = "within";
+        var width = band.max===Infinity ? band.min : (band.max-band.min);
+        d.priceRatio = width ? (car.priceLakh-band.min)/width : 0;
+        score += 32;
+      } else if(car.priceLakh > band.max){
+        var overPct = ((car.priceLakh-band.max)/band.max)*100;
+        d.budgetStatus = "above";
+        d.budgetOverPct = overPct;
+        score += Math.max(0, 32 - overPct*1.1);
+      } else {
+        d.budgetStatus = "below";
+        score += 27;
+      }
+    }
+
+    var segMatch = matchesSegment(car);
+    if(segMatch === true){ score += 20; d.segmentMatched = true; }
+    else if(segMatch === null){ score += 8; }
+
+    if(a.usageType === "mixed"){
+      if(car.tags.indexOf("city")!==-1 || car.tags.indexOf("highway")!==-1 || car.tags.indexOf("family")!==-1){
+        score += 16; d.usageMatched = true;
+      }
+    } else if(a.usageType && car.tags.indexOf(a.usageType) !== -1){
+      score += 16; d.usageMatched = true;
+    }
+
+    var seatBand = SEAT_BANDS.filter(function(s){return s.id===a.seats;})[0];
+    if(seatBand){
+      var seatOk =
+        (seatBand.id==="s24" && car.seats<=5) ||
+        (seatBand.id==="s5" && car.seats===5) ||
+        (seatBand.id==="s67" && car.seats>=6 && car.seats<=7);
+      if(seatOk){ score += 12; d.seatsMatched = true; }
+    }
+
+    (a.mustHaves||[]).forEach(function(mh){
+      if(mh === "automatic"){
+        if(car.transmission === "Automatic"){ score += 4; d.automaticMatched = true; }
+      } else if(mh === "sunroof"){
+        if(car.tags.indexOf("sunroof") !== -1){ score += 4; d.sunroofMatched = true; }
+      } else if(mh === "cng"){
+        if(car.fuel === "CNG" || car.fuel === "Electric"){ score += 6; d.fuelMatched = true; }
+      } else if(mh.indexOf("brand:") === 0){
+        var wantBrand = mh.slice(6);
+        if(car.brand === wantBrand){ score += 10; d.brandMatched = true; }
+      }
+    });
+
+    if(a.priority){ score += 3; }
+
+    return {score:score, detail:d};
+  }
+
+  function buildWhyText(car, a, d){
+    var parts = [];
+
+    if(d.budgetStatus === "within"){
+      parts.push(d.priceRatio < 0.7 ? "fits your budget with room to spare" : "fits your budget");
+    } else if(d.budgetStatus === "above"){
+      parts.push(d.budgetOverPct <= 15 ? "slightly above your budget, but worth seeing" : "above your target budget, but the spec justifies a look");
+    } else if(d.budgetStatus === "below"){
+      parts.push("comes in comfortably under your budget");
+    }
+
+    if(d.segmentMatched){
+      if(a.segment === "Luxury") parts.push("the luxury marque and finish you're after");
+      else if(a.segment === "Electric") parts.push("matches the electric preference you picked");
+      else parts.push("the " + a.segment.toLowerCase() + " body style you asked for");
+    }
+
+    if(d.usageMatched && USAGE_PHRASES[a.usageType]){
+      parts.push(USAGE_PHRASES[a.usageType]);
+    } else if(d.seatsMatched){
+      parts.push("has the seating you need");
+    }
+
+    if(d.brandMatched){
+      parts.push("comes from " + car.brand + ", just as you asked");
+    } else if(d.automaticMatched){
+      parts.push("comes as an automatic, as you wanted");
+    } else if(d.sunroofMatched){
+      parts.push("comes with a sunroof, as you wanted");
+    } else if(d.fuelMatched){
+      parts.push("runs on CNG, matching what you asked for");
+    }
+
+    var chosen = parts.slice(0,2);
+    var sentence = chosen.join(", and ");
+    sentence = sentence.charAt(0).toUpperCase() + sentence.slice(1) + ".";
+    return sentence;
+  }
+
+  function computeShortlist(){
+    if(answers.intent === "sell"){ lastShortlist = []; return; }
+    var scored = CARS.map(function(car){
+      var r = scoreCar(car, answers);
+      return {car:car, score:r.score, detail:r.detail};
+    }).sort(function(x,y){ return y.score - x.score; });
+
+    var picked = scored.filter(function(s){ return s.score >= 58; });
+    if(picked.length < 3) picked = scored.slice(0,3);
+    if(picked.length > 5) picked = picked.slice(0,5);
+
+    lastShortlist = picked.map(function(s){
+      return {
+        car: s.car,
+        why: buildWhyText(s.car, answers, s.detail)
+      };
+    });
+  }
+
+  function formatKms(k){
+    return k.toLocaleString("en-IN") + " km";
+  }
+  function formatPrice(lakh){
+    return "₹" + lakh.toLocaleString("en-IN",{maximumFractionDigits:1,minimumFractionDigits: (lakh%1===0?0:1)}) + " L";
+  }
+
+  function renderShortlist(){
+    var list = document.getElementById("carList");
+    var titleEl = document.getElementById("shortlist-title");
+    var subEl = document.getElementById("shortlistSub");
+    list.innerHTML = "";
+
+    if(answers.intent === "sell"){
+      titleEl.textContent = "Thanks — here's what happens next";
+      subEl.textContent = "";
+      var carLabel = answers.tradeIn.makeModel || "car";
+      list.innerHTML = '<p class="sell-notice">We\'ll value your ' + carLabel +
+        ' and get back to you &mdash; there\'s no shortlist to show since you\'re not buying today.</p>';
+      return;
+    }
+
+    titleEl.textContent = "Your shortlist";
+    subEl.textContent = "Matched from our current inventory, ranked by fit.";
+    if(lastShortlist.length < 3){
+      subEl.textContent += " We've widened the search a little to still show you options worth seeing.";
+    }
+    lastShortlist.forEach(function(item, i){
+      var car = item.car;
+      var card = document.createElement("article");
+      card.className = "car-card" + (i===0 ? " best" : "");
+      var badge = i===0 ? '<span class="best-badge">Best match</span>' : '<div class="car-rank">MATCH '+String(i+1).padStart(2,"0")+'</div>';
+      card.innerHTML =
+        badge +
+        '<h2 class="car-name">'+car.name+'</h2>' +
+        '<p class="car-strip">'+car.year+' &middot; '+car.owners+' owner'+(car.owners>1?"s":"")+' &middot; '+formatKms(car.kms)+'</p>' +
+        '<p class="car-price">'+formatPrice(car.priceLakh)+'</p>' +
+        '<p class="car-why">'+item.why+'</p>';
+      list.appendChild(card);
+    });
+  }
+
+  function updateAdvisorCopy(){
+    var payoff = document.getElementById("advisor-title");
+    var sub = document.getElementById("advisorSub");
+    if(answers.intent === "sell"){
+      payoff.textContent = "We'll value your car and call you back.";
+      sub.textContent = answers.priority
+        ? "You said this week — we're treating your valuation as priority."
+        : "Every valuation ends with a real conversation, not a form.";
+    } else if(answers.intent === "buy-trade"){
+      payoff.textContent = "Your advisor will take it from here.";
+      sub.textContent = (answers.priority ? "Priority handling — " : "") +
+        "we'll cover your shortlist and value your trade-in on the same call.";
+    } else {
+      payoff.textContent = "Your advisor will take it from here.";
+      sub.textContent = answers.priority
+        ? "You said this week — we're prioritising your call."
+        : "Every shortlist ends with a real conversation, not a checkout button.";
+    }
+  }
+
+  function buildWhatsAppLink(){
+    var lines = ["Hi Classic Auto! I used the Find Your Classic tool."];
+
+    if(answers.intent !== "sell" && lastShortlist.length){
+      var names = lastShortlist.map(function(i){ return i.car.name + " (" + i.car.year + ")"; });
+      lines.push("I'm interested in: " + names.join(", ") + ".");
+    }
+    if(answers.intent !== "buy"){
+      var t = answers.tradeIn;
+      lines.push("I also have a " + (t.makeModel || "car") + " (" + (t.year || "year?") + ", " +
+        (t.kms || "?") + " km, " + (t.owners || "?") + " owner(s)) to " +
+        (answers.intent === "sell" ? "sell" : "trade in") + ".");
+    }
+    if(answers.priority){ lines.push("This week if possible — it's time-sensitive for me."); }
+    lines.push("Could we set up a time to talk?");
+
+    var message = lines.join(" ");
+    var url = "https://wa.me/919588990000?text=" + encodeURIComponent(message);
+    document.getElementById("whatsappBtn").setAttribute("href", url);
+  }
+
+  showStep(0);
+})();
+</script>
+</body>
+</html>

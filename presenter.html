@@ -1,0 +1,1566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Presenter Mode — Classic Auto</title>
+<!--
+  CLASSIC AUTO — Presenter Mode.
+  Advisor-driven consultation for a showroom TV or shared laptop screen.
+  Single file: no external fonts, scripts, styles, or network requests.
+  Works fully offline via file:// — open this file directly in any browser.
+  Depends on cars.js sitting next to this file.
+
+  RUNNING IT LIVE: open this file, press F11 (or the browser's fullscreen
+  shortcut) to hide the browser chrome, then drive it with the arrow keys,
+  Enter/Space, and Backspace. See README.md for the full talking-points script.
+
+  FLOW mirrors customer.html: intent -> (buy path: segment, budget, usage,
+  seats, must-haves, timeline) -> (trade-in, if selling/trading) -> transition
+  -> compare + EMI (or, for a sell-only visit, a short trade-in confirmation
+  instead of a compare table — there's nothing to compare against).
+-->
+<style>
+  :root{
+    --navy-deep:#0A1633;
+    --navy-royal:#2B3990;
+    --red-classic:#E11B22;
+    --white:#FFFFFF;
+    --cream:#F7F5F0;
+    --gold:#B08D57;
+    --font-display: Georgia, 'Times New Roman', serif;
+    --font-body: -apple-system, 'Segoe UI', system-ui, sans-serif;
+    --font-mono: 'Consolas', 'SF Mono', monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;}
+  body{
+    min-height:100vh;
+    min-height:100dvh;
+    background:linear-gradient(135deg,var(--navy-deep) 0%,var(--navy-royal) 100%);
+    color:var(--white);
+    font-family:var(--font-body);
+    overflow-x:hidden;
+  }
+  button{font-family:inherit;cursor:pointer;}
+  a{color:inherit;}
+  input{font-family:inherit;}
+
+  a:focus-visible,
+  button:focus-visible,
+  input:focus-visible,
+  [tabindex]:focus-visible{
+    outline:3px solid var(--gold);
+    outline-offset:3px;
+    border-radius:6px;
+  }
+
+  .shell{
+    min-height:100vh;
+    min-height:100dvh;
+    display:flex;
+    flex-direction:column;
+  }
+
+  /* ---------- persistent keyboard hint ---------- */
+  .kb-hint{
+    position:fixed;
+    top:18px;
+    right:22px;
+    font-family:var(--font-mono);
+    font-size:0.78rem;
+    letter-spacing:0.03em;
+    color:rgba(255,255,255,0.62);
+    background:rgba(255,255,255,0.06);
+    border:1px solid rgba(255,255,255,0.14);
+    border-radius:999px;
+    padding:8px 16px;
+    z-index:20;
+  }
+  .kb-hint kbd{
+    font-family:var(--font-mono);
+    background:rgba(255,255,255,0.14);
+    border-radius:4px;
+    padding:1px 6px;
+    margin:0 2px;
+  }
+
+  /* ---------- header logo lockup ---------- */
+  .ptop-header{
+    display:flex;
+    justify-content:center;
+    padding:22px 0 4px;
+  }
+  .brand-plate{
+    background:var(--cream);
+    border-radius:14px;
+    padding:9px 22px;
+    box-shadow:0 6px 22px rgba(0,0,0,0.28);
+    display:flex;
+    align-items:center;
+  }
+  .brand-plate .logo-mark{height:42px;width:auto;display:block;}
+
+  /* ---------- footer lockup, present on every screen ---------- */
+  .footer-lockup{
+    text-align:center;
+    font-size:0.72rem;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    color:rgba(255,255,255,0.4);
+    padding:14px 20px 18px;
+    border-top:1px solid rgba(176,141,87,0.35);
+    margin-top:auto;
+  }
+
+  /* ---------- question stage ---------- */
+  .stage{
+    flex:1;
+    display:grid;
+    grid-template-columns:1fr 340px;
+    gap:48px;
+    padding:40px 64px 24px;
+    align-items:start;
+  }
+  .screen{display:none;}
+  .screen.active{display:grid;grid-template-columns:subgrid;grid-column:1 / -1;}
+  .screen.active.simple{display:block;}
+
+  .q-eyebrow{
+    font-family:var(--font-mono);
+    font-variant-numeric:tabular-nums;
+    letter-spacing:0.16em;
+    text-transform:uppercase;
+    color:var(--gold);
+    font-size:1.1rem;
+    margin:0 0 14px;
+  }
+  .q-title{
+    font-family:var(--font-display);
+    font-size:clamp(2.2rem,4.6vw,3.8rem);
+    line-height:1.1;
+    margin:0 0 32px;
+    max-width:18ch;
+  }
+  .kb-group-label{
+    font-family:var(--font-mono);
+    font-size:0.85rem;
+    letter-spacing:0.1em;
+    text-transform:uppercase;
+    color:rgba(255,255,255,0.55);
+    margin:0 0 12px;
+  }
+
+  .kb-choices{
+    display:flex;
+    flex-direction:column;
+    gap:14px;
+    max-width:760px;
+    margin-bottom:28px;
+  }
+  .kb-choices.grid2{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+  }
+  .kb-choices.wrap{
+    display:flex;
+    flex-direction:row;
+    flex-wrap:wrap;
+  }
+  .kchip{
+    background:rgba(255,255,255,0.05);
+    border:2px solid rgba(255,255,255,0.16);
+    color:var(--white);
+    border-radius:16px;
+    padding:18px 24px;
+    font-size:clamp(1.05rem,1.8vw,1.4rem);
+    font-weight:600;
+    text-align:left;
+    min-height:44px;
+    transition:background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+  }
+  .kb-choices.wrap .kchip{flex:1 1 220px;}
+  .kchip .kchip-sub{
+    display:block;
+    font-weight:400;
+    font-size:0.6em;
+    opacity:0.65;
+    margin-top:4px;
+  }
+  .kchip[data-kbfocus="true"]{
+    border-color:var(--gold);
+    background:rgba(176,141,87,0.14);
+  }
+  .kchip[aria-checked="true"]{
+    background:var(--red-classic);
+    border-color:var(--red-classic);
+  }
+  .kchip[aria-checked="true"][data-kbfocus="true"]{
+    box-shadow:0 0 0 3px var(--gold);
+  }
+  .kchip.continue-chip{
+    border-style:dashed;
+    color:var(--gold);
+    font-weight:700;
+  }
+
+  .field-label{
+    display:block;
+    font-size:0.85rem;
+    font-weight:700;
+    letter-spacing:0.05em;
+    text-transform:uppercase;
+    color:rgba(255,255,255,0.6);
+    margin:0 0 8px;
+  }
+  .field-input{
+    width:100%;
+    max-width:420px;
+    border:1.5px solid rgba(255,255,255,0.2);
+    background:rgba(255,255,255,0.06);
+    color:var(--white);
+    border-radius:10px;
+    padding:12px 14px;
+    font-size:1.05rem;
+    min-height:44px;
+    margin-bottom:18px;
+  }
+  .promise-line{
+    background:rgba(176,141,87,0.16);
+    border:1px solid rgba(176,141,87,0.5);
+    border-radius:10px;
+    padding:12px 16px;
+    color:var(--gold);
+    font-weight:700;
+    font-size:1rem;
+    margin:0 0 24px;
+    display:inline-block;
+  }
+
+  /* ---------- sidebar: preferences + live count ---------- */
+  .sidebar{
+    background:rgba(255,255,255,0.05);
+    border:1px solid rgba(255,255,255,0.12);
+    border-radius:18px;
+    padding:26px;
+    position:sticky;
+    top:40px;
+  }
+  .sidebar h2{
+    font-family:var(--font-mono);
+    font-size:0.78rem;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    color:rgba(255,255,255,0.55);
+    margin:0 0 16px;
+  }
+  .pref-row{
+    display:flex;
+    justify-content:space-between;
+    gap:10px;
+    padding:9px 0;
+    border-bottom:1px solid rgba(255,255,255,0.08);
+    font-size:0.88rem;
+  }
+  .pref-row:last-of-type{border-bottom:none;}
+  .pref-label{color:rgba(255,255,255,0.55);}
+  .pref-value{
+    font-weight:700;
+    text-align:right;
+    color:var(--white);
+    max-width:180px;
+  }
+  .pref-value.pending{color:rgba(255,255,255,0.35);font-weight:400;}
+
+  .count-block{
+    margin-top:22px;
+    padding-top:20px;
+    border-top:1px solid rgba(176,141,87,0.4);
+    text-align:center;
+  }
+  .count-label{
+    font-size:0.72rem;
+    letter-spacing:0.12em;
+    text-transform:uppercase;
+    color:rgba(255,255,255,0.55);
+    margin-bottom:6px;
+  }
+  .count-number{
+    font-family:var(--font-mono);
+    font-variant-numeric:tabular-nums;
+    font-size:3rem;
+    font-weight:700;
+    color:var(--gold);
+    line-height:1;
+    transition:transform 0.25s ease, opacity 0.25s ease;
+  }
+  .count-number.pulse{transform:scale(1.08);}
+  @media (prefers-reduced-motion: reduce){
+    .count-number{transition:none;}
+  }
+  .count-sub{font-size:0.72rem;color:rgba(255,255,255,0.4);margin-top:4px;}
+
+  /* ---------- transition ---------- */
+  .transition-screen{
+    display:none;
+    flex:1;
+    align-items:center;
+    justify-content:center;
+    flex-direction:column;
+    gap:24px;
+    text-align:center;
+  }
+  .transition-screen.active{display:flex;}
+  .big-dial{
+    width:96px;height:96px;
+    border-radius:50%;
+    border:6px solid rgba(255,255,255,0.15);
+    border-top-color:var(--gold);
+    animation:spin 1s linear infinite;
+  }
+  @keyframes spin{to{transform:rotate(360deg);}}
+  @media (prefers-reduced-motion: reduce){
+    .big-dial{animation:none;border-top-color:rgba(255,255,255,0.15);}
+  }
+  .transition-screen p{
+    font-family:var(--font-display);
+    font-size:2rem;
+    margin:0;
+  }
+
+  /* ---------- compare + EMI ---------- */
+  .compare-wrap{padding:40px 56px 20px;flex:1;}
+  .compare-head{margin-bottom:28px;}
+  .compare-head h1{
+    font-family:var(--font-display);
+    font-size:clamp(2rem,3.6vw,3rem);
+    margin:0 0 8px;
+  }
+  .compare-head p{color:rgba(255,255,255,0.6);margin:0;font-size:1rem;}
+
+  .sell-compare-notice{
+    background:rgba(255,255,255,0.05);
+    border:1px solid rgba(255,255,255,0.12);
+    border-radius:18px;
+    padding:32px;
+    font-size:1.2rem;
+    line-height:1.6;
+    color:rgba(255,255,255,0.85);
+    margin-bottom:28px;
+    max-width:640px;
+  }
+
+  .compare-table-wrap{overflow-x:auto;margin-bottom:36px;}
+  table.compare-table{
+    border-collapse:collapse;
+    width:100%;
+    min-width:640px;
+  }
+  .compare-table th, .compare-table td{
+    text-align:left;
+    padding:14px 18px;
+    border-bottom:1px solid rgba(255,255,255,0.12);
+    font-size:1.02rem;
+  }
+  .compare-table thead th{
+    font-family:var(--font-display);
+    font-size:1.25rem;
+    color:var(--white);
+    border-bottom:2px solid var(--gold);
+  }
+  .compare-table tbody th{
+    color:rgba(255,255,255,0.55);
+    font-weight:600;
+    font-size:0.85rem;
+    letter-spacing:0.05em;
+    text-transform:uppercase;
+    white-space:nowrap;
+  }
+  .compare-table td{
+    font-family:var(--font-mono);
+    font-variant-numeric:tabular-nums;
+  }
+  .compare-table td.price-cell{color:var(--gold);font-weight:700;font-size:1.1rem;}
+
+  .emi-panel{
+    background:rgba(255,255,255,0.05);
+    border:1px solid rgba(255,255,255,0.12);
+    border-radius:20px;
+    padding:32px;
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:32px;
+  }
+  .emi-panel h2{
+    grid-column:1 / -1;
+    font-family:var(--font-mono);
+    font-size:0.8rem;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    color:rgba(255,255,255,0.55);
+    margin:0;
+  }
+  .emi-car-select{
+    grid-column:1 / -1;
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+    margin-top:4px;
+  }
+  .car-select-chip{
+    background:rgba(255,255,255,0.06);
+    border:1.5px solid rgba(255,255,255,0.2);
+    color:var(--white);
+    border-radius:10px;
+    padding:10px 16px;
+    font-size:0.95rem;
+    font-weight:600;
+    min-height:44px;
+  }
+  .car-select-chip[aria-checked="true"]{
+    background:var(--red-classic);
+    border-color:var(--red-classic);
+  }
+
+  .emi-controls{display:flex;flex-direction:column;gap:22px;}
+  .slider-row label{
+    display:flex;
+    justify-content:space-between;
+    font-size:0.92rem;
+    margin-bottom:8px;
+    color:rgba(255,255,255,0.75);
+  }
+  .slider-row .slider-value{
+    font-family:var(--font-mono);
+    font-variant-numeric:tabular-nums;
+    color:var(--white);
+    font-weight:700;
+  }
+  input[type="range"]{
+    width:100%;
+    height:44px;
+    accent-color:var(--red-classic);
+    background:transparent;
+  }
+
+  .emi-result{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+    background:rgba(0,0,0,0.18);
+    border-radius:16px;
+    padding:24px;
+  }
+  .emi-result .emi-label{
+    font-size:0.8rem;
+    letter-spacing:0.1em;
+    text-transform:uppercase;
+    color:rgba(255,255,255,0.55);
+    margin-bottom:10px;
+  }
+  .emi-result .emi-figure{
+    font-family:var(--font-mono);
+    font-variant-numeric:tabular-nums;
+    font-size:clamp(2.6rem,5vw,4.2rem);
+    font-weight:700;
+    color:var(--white);
+    line-height:1;
+  }
+  .emi-result .emi-permonth{
+    font-size:1rem;
+    color:rgba(255,255,255,0.5);
+    margin-top:6px;
+  }
+  .emi-result .emi-principal{
+    margin-top:16px;
+    font-size:0.85rem;
+    color:rgba(255,255,255,0.55);
+    font-family:var(--font-mono);
+    font-variant-numeric:tabular-nums;
+  }
+
+  .restart-row{padding:0 56px 32px;}
+  .restart-btn{
+    background:none;
+    border:1.5px solid rgba(255,255,255,0.3);
+    color:rgba(255,255,255,0.8);
+    border-radius:10px;
+    padding:12px 22px;
+    font-size:0.9rem;
+    min-height:44px;
+  }
+
+  @media (max-width:900px){
+    .stage{grid-template-columns:1fr;padding:32px 24px 20px;}
+    .screen.active{grid-template-columns:1fr;}
+    .sidebar{position:static;}
+    .compare-wrap{padding:32px 24px 16px;}
+    .emi-panel{grid-template-columns:1fr;}
+    .kb-hint{position:static;display:inline-block;margin:16px 24px 0;}
+    .restart-row{padding:0 24px 24px;}
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <div class="kb-hint" id="kbHint">
+    <kbd>&uarr;</kbd><kbd>&darr;</kbd> choose &nbsp;&middot;&nbsp; <kbd>Enter</kbd> confirm &nbsp;&middot;&nbsp; <kbd>Backspace</kbd> back
+  </div>
+
+  <div class="ptop-header">
+    <div class="brand-plate">
+      <svg class="logo-mark" viewBox="0 0 840 496" role="img" aria-label="Classic Auto — Since 1974" xmlns="http://www.w3.org/2000/svg">
+        <path d="M 100 12
+                 L 300 12
+                 L 300 88
+                 L 128 88
+                 Q 96 88 96 120
+                 L 96 238
+                 Q 96 268 128 268
+                 L 688 268
+                 Q 722 268 722 302
+                 L 722 310
+                 Q 722 344 688 344
+                 L 92 344
+                 Q 14 344 14 266
+                 L 14 98
+                 Q 14 12 100 12 Z" fill="#E11B22"/>
+        <g fill="#2B3990">
+          <polygon points="468,6 552,6 372,360 288,360"/>
+          <polygon points="468,6 552,6 758,360 674,360"/>
+          <polygon points="404,212 620,212 650,282 370,282"/>
+        </g>
+        <text x="712" y="30" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="26" font-weight="bold" font-style="italic" letter-spacing="1" fill="#E11B22">SINCE 1974</text>
+        <g fill="none" stroke="#2B3990" stroke-width="7" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M 540 400 q 30 -6 52 -18 q 40 -22 92 -24 q 56 -2 88 18 q 26 2 44 10 q 10 4 -2 8"/>
+          <path d="M 560 402 q 130 -12 250 -8"/>
+        </g>
+        <circle cx="612" cy="404" r="11" fill="#FFFFFF" stroke="#2B3990" stroke-width="7"/>
+        <circle cx="762" cy="402" r="11" fill="#FFFFFF" stroke="#2B3990" stroke-width="7"/>
+        <text x="420" y="482" text-anchor="middle" font-family="'Arial Black', Arial, sans-serif" font-weight="900" font-style="italic" font-size="88" fill="#E11B22" letter-spacing="0">CLASSIC-AUTO</text>
+      </svg>
+    </div>
+  </div>
+
+  <div class="stage" id="stage">
+
+    <!-- INTENT -->
+    <section class="screen" data-step="intent">
+      <div>
+        <p class="q-eyebrow">Question 1 of 7</p>
+        <h1 class="q-title">What brings them in today?</h1>
+        <div class="kb-choices" role="radiogroup" aria-label="Intent" id="kb-intent"></div>
+      </div>
+      <aside class="sidebar" id="sidebar-intent"></aside>
+    </section>
+
+    <!-- SEGMENT -->
+    <section class="screen" data-step="segment">
+      <div>
+        <p class="q-eyebrow">Question 2 of 7</p>
+        <h1 class="q-title">What are they looking for?</h1>
+        <div class="kb-choices grid2" role="radiogroup" aria-label="Segment" id="kb-segment"></div>
+      </div>
+      <aside class="sidebar" id="sidebar-segment"></aside>
+    </section>
+
+    <!-- BUDGET -->
+    <section class="screen" data-step="budget">
+      <div>
+        <p class="q-eyebrow">Question 3 of 7</p>
+        <h1 class="q-title">What's their budget?</h1>
+        <div class="kb-choices" role="radiogroup" aria-label="Budget" id="kb-budget"></div>
+      </div>
+      <aside class="sidebar" id="sidebar-budget"></aside>
+    </section>
+
+    <!-- USAGE -->
+    <section class="screen" data-step="usage">
+      <div>
+        <p class="q-eyebrow">Question 4 of 7</p>
+        <h1 class="q-title">How will they mostly use it?</h1>
+        <p class="kb-group-label">Mostly&hellip;</p>
+        <div class="kb-choices grid2" role="radiogroup" aria-label="Usage type" id="kb-usageType"></div>
+        <p class="kb-group-label">Roughly how many kms a year?</p>
+        <div class="kb-choices grid2" role="radiogroup" aria-label="Yearly kilometres" id="kb-usageKms"></div>
+      </div>
+      <aside class="sidebar" id="sidebar-usage"></aside>
+    </section>
+
+    <!-- SEATS -->
+    <section class="screen" data-step="seats">
+      <div>
+        <p class="q-eyebrow">Question 5 of 7</p>
+        <h1 class="q-title">How many seats?</h1>
+        <div class="kb-choices grid2" role="radiogroup" aria-label="Seats" id="kb-seats"></div>
+      </div>
+      <aside class="sidebar" id="sidebar-seats"></aside>
+    </section>
+
+    <!-- MUST-HAVES -->
+    <section class="screen" data-step="musthaves">
+      <div>
+        <p class="q-eyebrow">Question 6 of 7</p>
+        <h1 class="q-title">Any must-haves?</h1>
+        <div class="kb-choices wrap" role="group" aria-label="Must-haves" id="kb-mustHaves"></div>
+      </div>
+      <aside class="sidebar" id="sidebar-musthaves"></aside>
+    </section>
+
+    <!-- TIMELINE -->
+    <section class="screen" data-step="timeline">
+      <div>
+        <p class="q-eyebrow">Question 7 of 7</p>
+        <h1 class="q-title">When are they looking to decide?</h1>
+        <div class="kb-choices" role="radiogroup" aria-label="Timeline" id="kb-timeline"></div>
+      </div>
+      <aside class="sidebar" id="sidebar-timeline"></aside>
+    </section>
+
+    <!-- TRADE-IN -->
+    <section class="screen" data-step="tradein">
+      <div>
+        <p class="q-eyebrow">Question 1 of 1</p>
+        <h1 class="q-title">Their current car</h1>
+        <p class="promise-line">Our offer within hours &mdash; same-day payment.</p>
+        <label class="field-label" for="ptiMakeModel">Make &amp; model</label>
+        <input class="field-input" type="text" id="ptiMakeModel" placeholder="e.g. Hyundai i20 Sportz" autocomplete="off">
+        <label class="field-label" for="ptiYear">Year</label>
+        <input class="field-input" type="number" id="ptiYear" min="1990" max="2026" placeholder="e.g. 2019" inputmode="numeric">
+        <label class="field-label" for="ptiKms">Kilometres driven</label>
+        <input class="field-input" type="number" id="ptiKms" min="0" placeholder="e.g. 45000" inputmode="numeric">
+        <p class="q-eyebrow" style="margin-top:6px;">Owners</p>
+        <div class="kb-choices grid2" role="radiogroup" aria-label="Owners" id="kb-tradeInOwners"></div>
+      </div>
+      <aside class="sidebar" id="sidebar-tradein"></aside>
+    </section>
+
+  </div>
+
+  <div class="transition-screen" data-step="transition">
+    <div class="big-dial" aria-hidden="true"></div>
+    <p id="transitionTextP">Narrowing the inventory&hellip;</p>
+  </div>
+
+  <div class="compare-wrap screen simple" data-step="compare">
+    <div class="compare-head">
+      <h1 id="compareTitle">Final shortlist</h1>
+      <p id="compareSub">Side by side, ranked by fit to today's brief.</p>
+    </div>
+
+    <div class="sell-compare-notice" id="sellCompareNotice" style="display:none;">
+      We'll value this trade-in and follow up &mdash; same-day payment once we agree a price. No comparison table needed since today's visit isn't about buying.
+    </div>
+
+    <div class="compare-table-wrap" id="compareTableWrap">
+      <table class="compare-table" id="compareTable"></table>
+    </div>
+
+    <div class="emi-panel" id="emiPanel">
+      <h2>EMI calculator</h2>
+      <div class="emi-car-select" id="emiCarSelect" role="radiogroup" aria-label="Select a car for EMI"></div>
+
+      <div class="emi-controls">
+        <div class="slider-row">
+          <label for="downPct">Down payment <span class="slider-value" id="downPctVal">20%</span></label>
+          <input type="range" id="downPct" min="0" max="90" step="5" value="20">
+        </div>
+        <div class="slider-row">
+          <label for="tenure">Tenure <span class="slider-value" id="tenureVal">60 months</span></label>
+          <input type="range" id="tenure" min="12" max="84" step="6" value="60">
+        </div>
+        <div class="slider-row">
+          <label for="rate">Interest rate <span class="slider-value" id="rateVal">11.0%</span></label>
+          <input type="range" id="rate" min="8" max="16" step="0.5" value="11">
+        </div>
+      </div>
+
+      <div class="emi-result">
+        <div class="emi-label">Estimated EMI</div>
+        <div class="emi-figure" id="emiFigure">&mdash;</div>
+        <div class="emi-permonth">per month</div>
+        <div class="emi-principal" id="emiPrincipal"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="restart-row screen simple" data-step="compare">
+    <button class="restart-btn" id="restartBtn" type="button">Restart consultation</button>
+  </div>
+
+  <div class="footer-lockup">Since 1974 &middot; 150-Point Checked</div>
+</div>
+
+<script>
+/*
+  ============================================================================
+  CLASSIC AUTO — INVENTORY FILE (cars.js)
+  ============================================================================
+
+  HOW TO ADD OR EDIT A CAR — no coding knowledge needed, just careful copying.
+
+  1. Find the car you want to change, or copy one whole block below (from the
+     opening { to the closing }, including the comma after it) and paste it
+     right after it, still inside the square brackets [ ] that hold CARS.
+  2. Change the details inside the quotes (or numbers) to match the real car.
+  3. Save the file, then refresh customer.html or presenter.html in your
+     browser to see the change. No other steps needed.
+
+  FIELD NOTES:
+  - "name"          Car name as customers should see it, e.g. "Maruti Suzuki WagonR"
+  - "year"           Whole number, e.g. 2019 (no quotes)
+  - "kms"            Kilometres driven so far, as a plain number (no commas,
+                      no quotes) e.g. 42000 — the tools add the "," formatting
+                      and "km" label automatically.
+  - "owners"         How many owners so far, as a plain number, e.g. 1
+  - "fuel"           Exactly one of: "Petrol", "Diesel", "CNG"
+  - "transmission"   Exactly one of: "Manual", "Automatic"
+  - "bodyType"       e.g. "Hatchback", "Sedan", "SUV", "MPV"
+  - "brand"          Just the maker's name, e.g. "Maruti Suzuki", "BMW"
+  - "seats"          Plain number: 4, 5, 6, or 7
+  - "priceLakh"      Price in ₹ lakh, as a plain number (no quotes, no commas).
+                      Decimals are fine, e.g. 12.5 means ₹12.5 lakh.
+  - "tags"           A list of words describing who the car suits. Use ONLY
+                      words from this set (spelling matters, all lowercase):
+                        "family"      — spacious, comfortable for a household
+                        "luxury"      — premium marque / high-spec trim
+                        "first-car"   — easy, forgiving, budget-friendly
+                        "chauffeur"   — comfortable being driven, rear legroom
+                        "city"        — compact, easy to park, efficient in traffic
+                        "highway"     — stable and comfortable at speed, long trips
+                        "sunroof"     — car has a sunroof/moonroof fitted
+                      A car can (and usually should) have 2-3 tags, plus
+                      "sunroof" if it applies.
+
+  MUST-HAVES (consultation tools' Q6) — how each chip is checked against a car:
+    - "Automatic"           → car.transmission === "Automatic"
+    - "Sunroof"              → the "sunroof" tag above
+    - "CNG/Hybrid-Electric"  → car.fuel === "CNG" or car.fuel === "Electric"
+                               (no Electric cars in stock yet — that's fine,
+                               the tool relaxes honestly instead of hiding the chip)
+    - brand chips            → car.brand matches exactly
+    - "No must-haves"        → clears/disables the other chips, no filtering
+
+  A NOTE FOR WHOEVER MAINTAINS THIS FILE LATER:
+  This file is a separate, temporary inventory used only by the consultation
+  tools (customer.html and presenter.html) in this folder. Once the main
+  Classic Auto website has its own cars.js (in ../website/), the two files
+  should be reconciled/merged into one shared source of truth so staff aren't
+  updating inventory in two places.
+  ============================================================================
+*/
+
+const CARS = [
+  {
+    id: "wagonr-vxi",
+    name: "Maruti Suzuki WagonR",
+    year: 2018,
+    kms: 42000,
+    owners: 1,
+    fuel: "Petrol",
+    transmission: "Manual",
+    bodyType: "Hatchback",
+    brand: "Maruti Suzuki",
+    seats: 5,
+    priceLakh: 4.1,
+    tags: ["first-car", "city"]
+  }, // SAMPLE — replace with real inventory
+  {
+    id: "swift-vxi",
+    name: "Maruti Suzuki Swift",
+    year: 2020,
+    kms: 28500,
+    owners: 1,
+    fuel: "Petrol",
+    transmission: "Manual",
+    bodyType: "Hatchback",
+    brand: "Maruti Suzuki",
+    seats: 5,
+    priceLakh: 5.9,
+    tags: ["first-car", "city"]
+  }, // SAMPLE — replace with real inventory
+  {
+    id: "i20-asta",
+    name: "Hyundai i20 Asta",
+    year: 2021,
+    kms: 19800,
+    owners: 1,
+    fuel: "Petrol",
+    transmission: "Automatic",
+    bodyType: "Hatchback",
+    brand: "Hyundai",
+    seats: 5,
+    priceLakh: 8.4,
+    tags: ["city", "first-car", "sunroof"]
+  }, // SAMPLE — replace with real inventory
+  {
+    id: "city-vx",
+    name: "Honda City",
+    year: 2019,
+    kms: 38200,
+    owners: 2,
+    fuel: "Petrol",
+    transmission: "Automatic",
+    bodyType: "Sedan",
+    brand: "Honda",
+    seats: 5,
+    priceLakh: 9.8,
+    tags: ["chauffeur", "city"]
+  }, // SAMPLE — replace with real inventory
+  {
+    id: "creta-sx",
+    name: "Hyundai Creta",
+    year: 2021,
+    kms: 24100,
+    owners: 1,
+    fuel: "Diesel",
+    transmission: "Automatic",
+    bodyType: "SUV",
+    brand: "Hyundai",
+    seats: 5,
+    priceLakh: 14.5,
+    tags: ["family", "highway", "sunroof"]
+  }, // SAMPLE — replace with real inventory
+  {
+    id: "ertiga-zxi",
+    name: "Maruti Suzuki Ertiga",
+    year: 2020,
+    kms: 31600,
+    owners: 1,
+    fuel: "Petrol",
+    transmission: "Manual",
+    bodyType: "MPV",
+    brand: "Maruti Suzuki",
+    seats: 7,
+    priceLakh: 9.2,
+    tags: ["family", "highway"]
+  }, // SAMPLE — replace with real inventory
+  {
+    id: "innova-crysta",
+    name: "Toyota Innova Crysta",
+    year: 2020,
+    kms: 45300,
+    owners: 1,
+    fuel: "Diesel",
+    transmission: "Automatic",
+    bodyType: "MPV",
+    brand: "Toyota",
+    seats: 7,
+    priceLakh: 19.8,
+    tags: ["family", "chauffeur", "highway", "sunroof"]
+  }, // SAMPLE — replace with real inventory
+  {
+    id: "5series-luxline",
+    name: "BMW 5 Series",
+    year: 2020,
+    kms: 26700,
+    owners: 1,
+    fuel: "Diesel",
+    transmission: "Automatic",
+    bodyType: "Sedan",
+    brand: "BMW",
+    seats: 5,
+    priceLakh: 42.0,
+    tags: ["luxury", "chauffeur", "highway", "sunroof"]
+  }, // SAMPLE — replace with real inventory
+  {
+    id: "x5-xdrive30d",
+    name: "BMW X5",
+    year: 2021,
+    kms: 18900,
+    owners: 1,
+    fuel: "Diesel",
+    transmission: "Automatic",
+    bodyType: "SUV",
+    brand: "BMW",
+    seats: 5,
+    priceLakh: 64.0,
+    tags: ["luxury", "family", "highway", "sunroof"]
+  }, // SAMPLE — replace with real inventory
+  {
+    id: "gle-450",
+    name: "Mercedes-Benz GLE",
+    year: 2022,
+    kms: 12300,
+    owners: 1,
+    fuel: "Diesel",
+    transmission: "Automatic",
+    bodyType: "SUV",
+    brand: "Mercedes-Benz",
+    seats: 5,
+    priceLakh: 72.5,
+    tags: ["luxury", "family", "chauffeur", "sunroof"]
+  } // SAMPLE — replace with real inventory
+];
+
+</script>
+<script>
+(function(){
+  "use strict";
+
+  /* ============================================================
+     OPTION SETS — same shape/values as customer.html so both
+     tools score inventory the same way.
+     ============================================================ */
+  var INTENT_OPTIONS = [
+    {id:"buy", label:"Buy a car"},
+    {id:"sell", label:"Sell my car"},
+    {id:"buy-trade", label:"Buy + trade-in my current car"}
+  ];
+  var SEGMENT_OPTIONS = [
+    {id:"Hatchback", label:"Hatchback"}, {id:"Sedan", label:"Sedan"}, {id:"SUV", label:"SUV"},
+    {id:"Luxury", label:"Luxury"}, {id:"Electric", label:"Electric"}, {id:"all", label:"Show me everything"}
+  ];
+  var BUDGET_BANDS = [
+    {id:"b1", label:"Under ₹5L", min:0, max:5},
+    {id:"b2", label:"₹5L – ₹10L", min:5, max:10},
+    {id:"b3", label:"₹10L – ₹20L", min:10, max:20},
+    {id:"b4", label:"₹20L – ₹40L", min:20, max:40},
+    {id:"b5", label:"₹40L and above", min:40, max:Infinity}
+  ];
+  var USAGE_TYPE_OPTIONS = [
+    {id:"city", label:"City runs"}, {id:"highway", label:"Highway trips"}, {id:"mixed", label:"A mix of both"}
+  ];
+  var USAGE_KMS_OPTIONS = [
+    {id:"under10k", label:"Under 10,000/yr"}, {id:"10to20k", label:"10,000 – 20,000/yr"}, {id:"over20k", label:"20,000+/yr"}
+  ];
+  var SEAT_BANDS = [
+    {id:"s24", label:"2–4 seats"}, {id:"s5", label:"5 seats"}, {id:"s67", label:"6–7 seats"}
+  ];
+  var TIMELINE_OPTIONS = [
+    {id:"this-week", label:"This week"}, {id:"this-month", label:"This month"}, {id:"exploring", label:"Just exploring"}
+  ];
+  var OWNER_OPTIONS = [
+    {id:"1", label:"1"}, {id:"2", label:"2"}, {id:"3", label:"3"}, {id:"4+", label:"4+"}
+  ];
+
+  function uniqueBrands(){
+    var seen = {}, list = [];
+    CARS.forEach(function(c){ if(!seen[c.brand]){seen[c.brand]=true; list.push(c.brand);} });
+    return list;
+  }
+  function buildMustHaveOptions(){
+    var opts = [
+      {id:"automatic", label:"Automatic"},
+      {id:"sunroof", label:"Sunroof"},
+      {id:"cng", label:"CNG / Hybrid-Electric"}
+    ];
+    uniqueBrands().forEach(function(b){ opts.push({id:"brand:"+b, label:b}); });
+    opts.push({id:"__continue", label:"Continue ➔"});
+    return opts;
+  }
+
+  var OPTION_SETS = {
+    intent: INTENT_OPTIONS, segment: SEGMENT_OPTIONS, budget: BUDGET_BANDS,
+    usageType: USAGE_TYPE_OPTIONS, usageKms: USAGE_KMS_OPTIONS, seats: SEAT_BANDS,
+    timeline: TIMELINE_OPTIONS, "tradeIn.owners": OWNER_OPTIONS
+  };
+  var FIELD_CONTAINER_ID = {
+    intent:"kb-intent", segment:"kb-segment", budget:"kb-budget", usageType:"kb-usageType",
+    usageKms:"kb-usageKms", seats:"kb-seats", mustHaves:"kb-mustHaves", timeline:"kb-timeline",
+    "tradeIn.owners":"kb-tradeInOwners"
+  };
+  var STEP_KB_FIELDS = {
+    intent:["intent"], segment:["segment"], budget:["budget"],
+    usage:["usageType","usageKms"], seats:["seats"], musthaves:["mustHaves"],
+    timeline:["timeline"], tradein:["tradeIn.owners"]
+  };
+  var STEP_DISPLAY_ROWS = {
+    intent:[{f:"intent", label:"Looking to"}],
+    segment:[{f:"segment", label:"Segment"}],
+    budget:[{f:"budget", label:"Budget"}],
+    usage:[{f:"usageType", label:"Usage"},{f:"usageKms", label:"Yearly kms"}],
+    seats:[{f:"seats", label:"Seats"}],
+    musthaves:[{f:"mustHaves", label:"Must-haves"}],
+    timeline:[{f:"timeline", label:"Timeline"}],
+    tradein:[{f:"tradeIn", label:"Trade-in"}]
+  };
+
+  /* ============================================================
+     STATE + PATH BRANCHING (mirrors customer.html)
+     ============================================================ */
+  var answers = {
+    intent:null, segment:null, budget:null, usageType:null, usageKms:null,
+    seats:null, mustHaves:[], mustHavesTouched:false, timeline:null, priority:false,
+    tradeIn:{makeModel:null, year:null, kms:null, owners:null}
+  };
+  function buildPath(intent){
+    if(intent === "sell") return ["intent","tradein","transition","compare"];
+    if(intent === "buy-trade") return ["intent","segment","budget","usage","seats","musthaves","timeline","tradein","transition","compare"];
+    return ["intent","segment","budget","usage","seats","musthaves","timeline","transition","compare"];
+  }
+  function questionKeysOf(path){
+    return path.filter(function(k){ return ["transition","compare"].indexOf(k) === -1; });
+  }
+  var CURRENT_PATH = buildPath("buy");
+  var currentIndex = 0;
+  var kbSubIndex = 0;
+  var kbFocusMap = {};
+  var reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var finalShortlist = [];
+  var selectedEmiCarId = null;
+
+  function getAnswer(path){
+    var parts = path.split(".");
+    var v = answers;
+    for(var i=0;i<parts.length;i++){ if(v===null||v===undefined) return undefined; v = v[parts[i]]; }
+    return v;
+  }
+  function setAnswer(path, value){
+    var parts = path.split(".");
+    var obj = answers;
+    for(var i=0;i<parts.length-1;i++){ obj = obj[parts[i]]; }
+    obj[parts[parts.length-1]] = value;
+  }
+
+  var screens = {};
+  document.querySelectorAll(".screen[data-step], .transition-screen").forEach(function(s){
+    var key = s.dataset.step;
+    if(!screens[key]) screens[key] = [];
+    screens[key].push(s);
+  });
+
+  function fieldContainer(field){
+    return document.getElementById(FIELD_CONTAINER_ID[field]);
+  }
+
+  /* ============================================================
+     RENDER KEYBOARD-DRIVEN CHIP GROUPS
+     ============================================================ */
+  function matchesSegmentP(car, seg){
+    if(!seg || seg === "all") return null;
+    if(seg === "Luxury") return car.tags.indexOf("luxury") !== -1;
+    if(seg === "Electric") return car.fuel === "Electric";
+    return car.bodyType === seg;
+  }
+
+  function renderKbField(container, field){
+    container.innerHTML = "";
+    var isMulti = field === "mustHaves";
+    var options = isMulti ? buildMustHaveOptions() : OPTION_SETS[field];
+    options.forEach(function(opt, i){
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "kchip" + (opt.id==="__continue" ? " continue-chip" : "");
+      btn.setAttribute("role", isMulti && opt.id!=="__continue" ? "checkbox" : "radio");
+      btn.setAttribute("aria-checked","false");
+      btn.dataset.value = opt.id;
+      btn.dataset.index = i;
+      btn.tabIndex = i===0 ? 0 : -1;
+      btn.innerHTML = opt.label;
+      btn.addEventListener("click", function(){ activateOption(field, i); });
+      container.appendChild(btn);
+    });
+    // restore stored state
+    if(isMulti){
+      container.querySelectorAll(".kchip").forEach(function(c){
+        if(c.dataset.value !== "__continue"){
+          c.setAttribute("aria-checked", answers.mustHaves.indexOf(c.dataset.value)!==-1 ? "true" : "false");
+        }
+      });
+    } else {
+      var cur = getAnswer(field);
+      container.querySelectorAll(".kchip").forEach(function(c){
+        c.setAttribute("aria-checked", c.dataset.value===cur ? "true" : "false");
+      });
+    }
+  }
+
+  function renderBudgetKbChips(container){
+    container.innerHTML = "";
+    BUDGET_BANDS.forEach(function(band, i){
+      var count = CARS.filter(function(c){
+        return matchesSegmentP(c, answers.segment) !== false && c.priceLakh>=band.min && c.priceLakh<=band.max;
+      }).length;
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "kchip";
+      btn.setAttribute("role","radio");
+      btn.setAttribute("aria-checked", answers.budget===band.id ? "true":"false");
+      btn.dataset.value = band.id;
+      btn.dataset.index = i;
+      btn.tabIndex = i===0 ? 0 : -1;
+      btn.innerHTML = band.label + '<span class="kchip-sub">'+count+' car'+(count===1?'':'s')+' in stock</span>';
+      btn.addEventListener("click", function(){ activateOption("budget", i); });
+      container.appendChild(btn);
+    });
+  }
+
+  function updateFocusVisualForField(field){
+    var container = fieldContainer(field);
+    if(!container) return;
+    var chips = container.querySelectorAll(".kchip");
+    chips.forEach(function(c,i){
+      c.dataset.kbfocus = (i===kbFocusMap[field]) ? "true" : "false";
+      c.tabIndex = (i===kbFocusMap[field]) ? 0 : -1;
+    });
+  }
+
+  /* Index of the currently-checked chip in a field's container, or 0 if
+     none — used so revisiting a screen (e.g. via Backspace) puts keyboard
+     focus back on the answer that's actually selected, not always the
+     first option. Without this, a reflexive Enter on a revisited screen
+     would silently overwrite the stored answer with option 0. */
+  function indexOfChecked(container){
+    var chips = container.querySelectorAll(".kchip");
+    for(var i=0;i<chips.length;i++){
+      if(chips[i].getAttribute("aria-checked") === "true") return i;
+    }
+    return 0;
+  }
+
+  function focusSubfield(stepKey, subIdx){
+    var field = STEP_KB_FIELDS[stepKey][subIdx];
+    if(!field) return;
+    kbFocusMap[field] = kbFocusMap[field] || 0;
+    updateFocusVisualForField(field);
+    var container = fieldContainer(field);
+    var chips = container.querySelectorAll(".kchip");
+    if(chips[kbFocusMap[field]]) chips[kbFocusMap[field]].focus({preventScroll:true});
+  }
+
+  function advanceSubfieldOrScreen(){
+    var stepKey = CURRENT_PATH[currentIndex];
+    var fields = STEP_KB_FIELDS[stepKey];
+    kbSubIndex++;
+    if(kbSubIndex < fields.length){
+      focusSubfield(stepKey, kbSubIndex);
+    } else {
+      clearPendingTimer();
+      pendingTimer = window.setTimeout(function(){
+        pendingTimer = null;
+        showStep(currentIndex+1);
+      }, 260);
+    }
+  }
+
+  function activateOption(field, index){
+    var container = fieldContainer(field);
+    var chips = container.querySelectorAll(".kchip");
+    var chip = chips[index];
+    if(!chip) return;
+    kbFocusMap[field] = index;
+    updateFocusVisualForField(field);
+
+    if(field === "mustHaves"){
+      if(chip.dataset.value === "__continue"){
+        answers.mustHavesTouched = true;
+        renderSidebarForCurrentStep();
+        advanceSubfieldOrScreen();
+        return;
+      }
+      var wasChecked = chip.getAttribute("aria-checked") === "true";
+      chip.setAttribute("aria-checked", wasChecked ? "false" : "true");
+      var idx = answers.mustHaves.indexOf(chip.dataset.value);
+      if(wasChecked){ if(idx>-1) answers.mustHaves.splice(idx,1); }
+      else { if(idx===-1) answers.mustHaves.push(chip.dataset.value); }
+      answers.mustHavesTouched = true;
+      renderSidebarForCurrentStep();
+      return; // stays on this field — multi-select doesn't auto-advance
+    }
+
+    chips.forEach(function(c){ c.setAttribute("aria-checked","false"); });
+    chip.setAttribute("aria-checked","true");
+    setAnswer(field, chip.dataset.value);
+    if(field === "timeline"){ answers.priority = (chip.dataset.value === "this-week"); }
+    renderSidebarForCurrentStep();
+    advanceSubfieldOrScreen();
+  }
+
+  /* ============================================================
+     SIDEBAR — preferences so far + live narrowing count
+     ============================================================ */
+  function displayValue(f){
+    if(f === "intent"){
+      var v = answers.intent;
+      if(!v) return null;
+      return {buy:"Buy a car", sell:"Sell my car", "buy-trade":"Buy + trade-in"}[v] || v;
+    }
+    if(f === "mustHaves"){
+      if(!answers.mustHavesTouched) return null;
+      if(answers.mustHaves.length === 0) return "None specified";
+      return answers.mustHaves.map(function(m){
+        if(m==="automatic") return "Automatic";
+        if(m==="sunroof") return "Sunroof";
+        if(m==="cng") return "CNG/Hybrid";
+        if(m.indexOf("brand:")===0) return m.slice(6);
+        return m;
+      }).join(", ");
+    }
+    if(f === "tradeIn"){
+      var t = answers.tradeIn;
+      if(!t.makeModel && !t.year && !t.kms && !t.owners) return null;
+      return (t.makeModel || "—") + (t.year ? " '"+t.year : "");
+    }
+    var v2 = getAnswer(f);
+    if(v2===null || v2===undefined || v2==="") return null;
+    var opts = OPTION_SETS[f];
+    var opt = opts ? opts.filter(function(o){return o.id===v2;})[0] : null;
+    return opt ? opt.label : v2;
+  }
+
+  function liveMatchCount(){
+    var candidates = CARS;
+    if(answers.segment){
+      candidates = candidates.filter(function(c){ return matchesSegmentP(c, answers.segment) !== false; });
+    }
+    if(answers.budget){
+      var band = BUDGET_BANDS.filter(function(b){return b.id===answers.budget;})[0];
+      if(band) candidates = candidates.filter(function(c){
+        if(c.priceLakh <= band.max) return true;
+        var overPct = ((c.priceLakh-band.max)/band.max)*100;
+        return overPct <= 15;
+      });
+    }
+    if(answers.usageType && answers.usageType !== "mixed"){
+      candidates = candidates.filter(function(c){ return c.tags.indexOf(answers.usageType) !== -1; });
+    }
+    if(answers.seats){
+      candidates = candidates.filter(function(c){
+        if(answers.seats==="s24") return c.seats<=5;
+        if(answers.seats==="s5") return c.seats===5;
+        if(answers.seats==="s67") return c.seats>=6 && c.seats<=7;
+        return true;
+      });
+    }
+    if(answers.mustHavesTouched && answers.mustHaves.length){
+      candidates = candidates.filter(function(c){
+        return answers.mustHaves.every(function(mh){
+          if(mh==="automatic") return c.transmission==="Automatic";
+          if(mh==="sunroof") return c.tags.indexOf("sunroof")!==-1;
+          if(mh==="cng") return c.fuel==="CNG"||c.fuel==="Electric";
+          if(mh.indexOf("brand:")===0) return c.brand===mh.slice(6);
+          return true;
+        });
+      });
+    }
+    return candidates.length;
+  }
+
+  function buildSidebarHTML(){
+    var html = '<h2>Consultation so far</h2>';
+    questionKeysOf(CURRENT_PATH).forEach(function(stepKey){
+      (STEP_DISPLAY_ROWS[stepKey]||[]).forEach(function(row){
+        var val = displayValue(row.f);
+        html += '<div class="pref-row"><span class="pref-label">'+row.label+'</span>' +
+          '<span class="pref-value'+(val?'':' pending')+'">'+(val||"&mdash;")+'</span></div>';
+      });
+    });
+    if(CURRENT_PATH.indexOf("segment") !== -1){
+      var count = liveMatchCount();
+      html += '<div class="count-block"><div class="count-label">Matching inventory</div>' +
+        '<div class="count-number" id="liveCount">'+count+'</div>' +
+        '<div class="count-sub">of '+CARS.length+' cars in stock</div></div>';
+    }
+    return html;
+  }
+  function renderSidebarForCurrentStep(){
+    var key = CURRENT_PATH[currentIndex];
+    var el = document.getElementById("sidebar-"+key);
+    if(!el) return;
+    el.innerHTML = buildSidebarHTML();
+    var numEl = document.getElementById("liveCount");
+    if(numEl && !reducedMotion){
+      numEl.classList.add("pulse");
+      window.setTimeout(function(){ numEl.classList.remove("pulse"); }, 260);
+    }
+  }
+
+  /* ============================================================
+     NAVIGATION
+     ============================================================ */
+  /* A single tracked timer for both the transition-screen auto-advance and
+     the brief subfield-to-subfield advance delay. Without this, backing out
+     of the transition screen (or anywhere else) with Backspace left the old
+     timer armed — it would fire ~1.3s later and yank the advisor forward to
+     Compare regardless of what they'd navigated to since. showStep() always
+     clears any pending timer first, so only the most recent navigation can
+     ever fire. */
+  var pendingTimer = null;
+  function clearPendingTimer(){
+    if(pendingTimer){ clearTimeout(pendingTimer); pendingTimer = null; }
+  }
+
+  function showStep(index){
+    clearPendingTimer();
+    if(index >= CURRENT_PATH.length) index = CURRENT_PATH.length-1;
+    if(CURRENT_PATH[currentIndex] === "intent" && index === 1){
+      // Leaving the intent screen — lock in the branch for the rest of the visit.
+      CURRENT_PATH = buildPath(answers.intent);
+    }
+    currentIndex = index;
+    var key = CURRENT_PATH[index];
+
+    Object.keys(screens).forEach(function(k){ screens[k].forEach(function(el){ el.classList.remove("active"); }); });
+    if(screens[key]) screens[key].forEach(function(el){ el.classList.add("active"); });
+
+    var qKeys = questionKeysOf(CURRENT_PATH);
+    var qPos = qKeys.indexOf(key);
+    if(qPos !== -1){
+      var n = qPos+1, total = qKeys.length;
+      if(screens[key]) screens[key].forEach(function(el){
+        var eyebrow = el.querySelector(".q-eyebrow");
+        if(eyebrow) eyebrow.textContent = "Question " + n + " of " + total;
+      });
+      kbSubIndex = 0;
+      STEP_KB_FIELDS[key].forEach(function(f){
+        var c = fieldContainer(f);
+        if(f === "budget") renderBudgetKbChips(c);
+        else renderKbField(c, f);
+        kbFocusMap[f] = indexOfChecked(c);
+      });
+      renderSidebarForCurrentStep();
+      focusSubfield(key, 0);
+    }
+
+    if(key === "transition"){
+      document.getElementById("transitionTextP").textContent =
+        answers.intent === "sell" ? "Preparing the valuation…" : "Narrowing the inventory…";
+      var delay = reducedMotion ? 200 : 1300;
+      pendingTimer = window.setTimeout(function(){
+        pendingTimer = null;
+        computeFinalShortlist();
+        showStep(CURRENT_PATH.indexOf("compare"));
+      }, delay);
+    }
+
+    if(key === "compare"){
+      renderCompare();
+    }
+  }
+
+  document.getElementById("restartBtn").addEventListener("click", function(){
+    answers = {
+      intent:null, segment:null, budget:null, usageType:null, usageKms:null,
+      seats:null, mustHaves:[], mustHavesTouched:false, timeline:null, priority:false,
+      tradeIn:{makeModel:null, year:null, kms:null, owners:null}
+    };
+    CURRENT_PATH = buildPath("buy");
+    document.getElementById("ptiMakeModel").value = "";
+    document.getElementById("ptiYear").value = "";
+    document.getElementById("ptiKms").value = "";
+    selectedEmiCarId = null;
+    showStep(0);
+  });
+
+  document.getElementById("ptiMakeModel").addEventListener("input", function(){ setAnswer("tradeIn.makeModel", this.value.trim()); });
+  document.getElementById("ptiYear").addEventListener("input", function(){ setAnswer("tradeIn.year", this.value); });
+  document.getElementById("ptiKms").addEventListener("input", function(){ setAnswer("tradeIn.kms", this.value); });
+
+  /* ============================================================
+     KEYBOARD NAVIGATION — arrow keys move between choices,
+     Space/Enter confirms (and advances on the last sub-field of a
+     screen), Backspace goes back. Typing in the trade-in text/number
+     inputs uses normal browser behaviour, so Backspace is left alone
+     while one of those inputs is focused.
+     ============================================================ */
+  document.addEventListener("keydown", function(e){
+    var active = document.activeElement;
+    var onInput = active && active.tagName === "INPUT";
+    if(e.key === "Backspace" && onInput) return;
+
+    var stepKey = CURRENT_PATH[currentIndex];
+    var qKeys = questionKeysOf(CURRENT_PATH);
+    var isQuestion = qKeys.indexOf(stepKey) !== -1;
+
+    if(e.key === "Backspace"){
+      if(currentIndex > 0){
+        if(isQuestion && kbSubIndex > 0){
+          e.preventDefault();
+          kbSubIndex--;
+          focusSubfield(stepKey, kbSubIndex);
+          return;
+        }
+        var targetIndex = currentIndex - 1;
+        if(CURRENT_PATH[targetIndex] === "transition") targetIndex -= 1;
+        if(targetIndex >= 0){
+          e.preventDefault();
+          showStep(targetIndex);
+        }
+      }
+      return;
+    }
+
+    if(!isQuestion) return;
+    var fields = STEP_KB_FIELDS[stepKey];
+    var field = fields[kbSubIndex];
+    if(!field) return;
+    var options = field === "mustHaves" ? buildMustHaveOptions() : OPTION_SETS[field];
+    var container = fieldContainer(field);
+
+    if(e.key === "ArrowDown" || e.key === "ArrowRight"){
+      e.preventDefault();
+      kbFocusMap[field] = Math.min(options.length-1, (kbFocusMap[field]||0)+1);
+      updateFocusVisualForField(field);
+      container.querySelectorAll(".kchip")[kbFocusMap[field]].focus({preventScroll:true});
+    } else if(e.key === "ArrowUp" || e.key === "ArrowLeft"){
+      e.preventDefault();
+      kbFocusMap[field] = Math.max(0, (kbFocusMap[field]||0)-1);
+      updateFocusVisualForField(field);
+      container.querySelectorAll(".kchip")[kbFocusMap[field]].focus({preventScroll:true});
+    } else if(e.key === "Enter" || e.key === " "){
+      e.preventDefault();
+      activateOption(field, kbFocusMap[field]||0);
+    }
+  });
+
+  /* ============================================================
+     SCORING — full weighted score for the final compare shortlist.
+     Mirrors customer.html exactly (see that file's comment for the
+     full weight table and reasoning): budget strongest, then segment,
+     usage, seats, then the must-have signals, with a small priority
+     tie-break. The separate liveMatchCount() above stays strict/honest
+     for the sidebar's narrowing number — the two are allowed to
+     disagree slightly, by design.
+     ============================================================ */
+  function fullScore(car, a){
+    var total = 0;
+    var band = BUDGET_BANDS.filter(function(b){return b.id===a.budget;})[0];
+    if(band){
+      if(car.priceLakh >= band.min && car.priceLakh <= band.max){ total += 32; }
+      else if(car.priceLakh > band.max){
+        var overPct = ((car.priceLakh-band.max)/band.max)*100;
+        total += Math.max(0, 32-overPct*1.1);
+      } else { total += 27; }
+    }
+    var segMatch = matchesSegmentP(car, a.segment);
+    if(segMatch === true) total += 20; else if(segMatch === null) total += 8;
+
+    if(a.usageType === "mixed"){
+      if(car.tags.indexOf("city")!==-1 || car.tags.indexOf("highway")!==-1 || car.tags.indexOf("family")!==-1) total += 16;
+    } else if(a.usageType && car.tags.indexOf(a.usageType) !== -1){ total += 16; }
+
+    if(a.seats){
+      var ok = (a.seats==="s24" && car.seats<=5) || (a.seats==="s5" && car.seats===5) || (a.seats==="s67" && car.seats>=6 && car.seats<=7);
+      if(ok) total += 12;
+    }
+
+    (a.mustHaves||[]).forEach(function(mh){
+      if(mh==="automatic" && car.transmission==="Automatic") total += 4;
+      else if(mh==="sunroof" && car.tags.indexOf("sunroof")!==-1) total += 4;
+      else if(mh==="cng" && (car.fuel==="CNG"||car.fuel==="Electric")) total += 6;
+      else if(mh.indexOf("brand:")===0 && car.brand===mh.slice(6)) total += 10;
+    });
+
+    if(a.priority) total += 3;
+    return total;
+  }
+
+  /* ============================================================
+     COMPARE + EMI
+     ============================================================ */
+  function computeFinalShortlist(){
+    if(answers.intent === "sell"){ finalShortlist = []; return; }
+    var scored = CARS.map(function(car){ return {car:car, score:fullScore(car, answers)}; })
+                      .sort(function(a,b){ return b.score-a.score; });
+    var picked = scored.filter(function(s){ return s.score >= 58; });
+    if(picked.length < 3) picked = scored.slice(0,3);
+    if(picked.length > 5) picked = picked.slice(0,5);
+    finalShortlist = picked.map(function(s){ return s.car; });
+    selectedEmiCarId = finalShortlist.length ? finalShortlist[0].id : null;
+  }
+
+  function formatKms(k){ return k.toLocaleString("en-IN") + " km"; }
+  function formatPrice(lakh){
+    return "₹" + lakh.toLocaleString("en-IN",{maximumFractionDigits:1}) + " L";
+  }
+  function formatINR(n){
+    return "₹" + Math.round(n).toLocaleString("en-IN");
+  }
+
+  function renderCompare(){
+    var sellMode = answers.intent === "sell";
+    document.getElementById("compareTableWrap").style.display = sellMode ? "none" : "block";
+    document.getElementById("emiPanel").style.display = sellMode ? "none" : "grid";
+    document.getElementById("sellCompareNotice").style.display = sellMode ? "block" : "none";
+    document.getElementById("compareTitle").textContent = sellMode ? "Trade-in received" : "Final shortlist";
+    document.getElementById("compareSub").textContent = sellMode
+      ? "We'll value this car and follow up — same-day payment once agreed."
+      : "Side by side, ranked by fit to today's brief.";
+    if(sellMode) return;
+
+    var table = document.getElementById("compareTable");
+    var rows = [
+      {label:"Price", get:function(c){return formatPrice(c.priceLakh);}, priceCell:true},
+      {label:"Year", get:function(c){return c.year;}},
+      {label:"KMs driven", get:function(c){return formatKms(c.kms);}},
+      {label:"Owners", get:function(c){return c.owners;}},
+      {label:"Fuel", get:function(c){return c.fuel;}},
+      {label:"Seats", get:function(c){return c.seats;}}
+    ];
+    var thead = "<thead><tr><th></th>" + finalShortlist.map(function(c){return "<th>"+c.name+"</th>";}).join("") + "</tr></thead>";
+    var tbody = "<tbody>" + rows.map(function(r){
+      return "<tr><th>"+r.label+"</th>" + finalShortlist.map(function(c){
+        return '<td'+(r.priceCell?' class="price-cell"':'')+'>'+r.get(c)+"</td>";
+      }).join("") + "</tr>";
+    }).join("") + "</tbody>";
+    table.innerHTML = thead + tbody;
+
+    var select = document.getElementById("emiCarSelect");
+    select.innerHTML = "";
+    finalShortlist.forEach(function(c){
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "car-select-chip";
+      btn.setAttribute("role","radio");
+      btn.setAttribute("aria-checked", c.id===selectedEmiCarId ? "true":"false");
+      btn.textContent = c.name;
+      btn.addEventListener("click", function(){
+        selectedEmiCarId = c.id;
+        select.querySelectorAll(".car-select-chip").forEach(function(b){ b.setAttribute("aria-checked","false"); });
+        btn.setAttribute("aria-checked","true");
+        updateEmi();
+      });
+      select.appendChild(btn);
+    });
+    updateEmi();
+  }
+
+  var downPctEl = document.getElementById("downPct");
+  var tenureEl = document.getElementById("tenure");
+  var rateEl = document.getElementById("rate");
+  [downPctEl, tenureEl, rateEl].forEach(function(el){
+    el.addEventListener("input", updateEmi);
+  });
+
+  function updateEmi(){
+    var car = finalShortlist.filter(function(c){ return c.id===selectedEmiCarId; })[0];
+    var downPct = parseFloat(downPctEl.value);
+    var tenure = parseInt(tenureEl.value,10);
+    var rate = parseFloat(rateEl.value);
+
+    document.getElementById("downPctVal").textContent = downPct + "%";
+    document.getElementById("tenureVal").textContent = tenure + " months";
+    document.getElementById("rateVal").textContent = rate.toFixed(1) + "%";
+
+    if(!car){
+      document.getElementById("emiFigure").textContent = "—";
+      document.getElementById("emiPrincipal").textContent = "";
+      return;
+    }
+
+    var priceRs = car.priceLakh * 100000;
+    var principal = priceRs * (1 - downPct/100);
+    var monthlyRate = rate/12/100;
+    var n = tenure;
+    var emi;
+    if(monthlyRate === 0){
+      emi = principal / n;
+    } else {
+      var factor = Math.pow(1+monthlyRate, n);
+      emi = principal * monthlyRate * factor / (factor - 1);
+    }
+
+    document.getElementById("emiFigure").textContent = formatINR(emi);
+    document.getElementById("emiPrincipal").textContent =
+      "Financed principal " + formatINR(principal) + " on " + car.name;
+  }
+
+  showStep(0);
+})();
+</script>
+</body>
+</html>
