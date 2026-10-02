@@ -320,6 +320,7 @@
     font-weight:600;
   }
 </style>
+<script src="site-phone.js"></script>
 </head>
 <body>
 
@@ -462,7 +463,11 @@
   var COLOR_DIM = 'rgba(245,242,236,0.55)';
   var COLOR_HAIRLINE = 'rgba(245,242,236,0.18)';
 
-  var PHONE = '+91 9588990000';
+  // Public phone: none until the new business number arrives (owner decision,
+  // 2 Oct 2026). Set once for the whole site in site-phone.js; while it is empty
+  // the footer shows the Instagram handle instead.
+  var PHONE = window.CLASSIC_AUTO_PHONE || null;
+  var HANDLE = 'DM @CLASSICAUTO_1974';
 
   // ---------- default brand logo ----------
   // The real Classic Auto logo, embedded as a data URI. Never reference the
@@ -698,11 +703,11 @@
 
     var cy = top + 3 + (bandH - 3) / 2;
 
-    // phone, right-aligned
+    // phone (or the DM handle while there is no public number), right-aligned
     ctx.fillStyle = COLOR_OFF;
-    ctx.font = '400 27px ' + FONT_SANS;
+    ctx.font = PHONE ? '400 27px ' + FONT_SANS : '600 22px ' + FONT_SANS;
     ctx.textBaseline = 'middle';
-    drawTracked(ctx, PHONE, layout.W - layout.margin, cy + 1, 1.5, 'right');
+    drawTracked(ctx, PHONE || HANDLE, layout.W - layout.margin, cy + 1, 1.5, 'right');
 
     // SINCE 1974 — quiet centre mark on the band
     ctx.fillStyle = 'rgba(245,242,236,0.55)';

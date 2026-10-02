@@ -459,6 +459,8 @@
   }
 
   .cta-stack{display:flex;flex-direction:column;gap:12px;margin-bottom:18px;}
+  .cta-note{text-align:center;font-size:0.82rem;color:rgba(10,22,51,0.6);margin:-6px 0 14px;}
+  [hidden]{display:none !important;}
 
   .cta-whatsapp{
     display:flex;align-items:center;justify-content:center;gap:10px;
@@ -496,6 +498,7 @@
     .app{border-radius:20px;min-height:auto;}
   }
 </style>
+<script src="site-phone.js"></script>
 </head>
 <body>
 
@@ -573,7 +576,7 @@
     <section class="screen" data-step="budget" aria-labelledby="qbudget-title">
       <p class="q-eyebrow">Question 3 of 14</p>
       <h1 class="q-title" id="qbudget-title">What's your budget?</h1>
-      <p class="q-sub">In ₹ lakh. The count on each option is live from our current stock.</p>
+      <p class="q-sub">In ₹ lakh. The count on each option is from our sample listings &mdash; DM us for today&rsquo;s real stock.</p>
       <div class="choices stacked" role="radiogroup" aria-labelledby="qbudget-title" data-field="budget"></div>
       <div class="spacer"></div>
       <button class="primary-btn" data-continue data-requires="budget" disabled>Continue</button>
@@ -703,7 +706,7 @@
     <section class="screen" data-step="tradein" aria-labelledby="qtradein-title">
       <p class="q-eyebrow">Question 1 of 1</p>
       <h1 class="q-title" id="qtradein-title">Tell us about your current car</h1>
-      <p class="promise-line">Our offer within hours &mdash; same-day payment.</p>
+      <p class="promise-line">Quick valuation &mdash; ask us about payment timelines.</p>
 
       <label class="field-label" for="tiMakeModel">Make &amp; model</label>
       <input class="field-input" type="text" id="tiMakeModel" placeholder="e.g. Hyundai i20 Sportz" autocomplete="off">
@@ -731,7 +734,7 @@
     <section class="screen" data-step="shortlist" aria-labelledby="shortlist-title">
       <div class="shortlist-head">
         <h1 id="shortlist-title">Your shortlist</h1>
-        <p id="shortlistSub">Matched from our current inventory, ranked by fit.</p>
+        <p id="shortlistSub">Matched from our sample listings, ranked by fit &mdash; DM us for today&rsquo;s real stock.</p>
       </div>
       <div id="carList"></div>
       <div class="spacer"></div>
@@ -746,23 +749,24 @@
       </div>
 
       <div class="advisor-card">
-        <div class="advisor-avatar" aria-hidden="true">R</div>
+        <div class="advisor-avatar" aria-hidden="true">CA</div>
         <div class="advisor-info">
-          <div class="advisor-name">Rajesh — Senior Advisor</div>
-          <div class="advisor-role">12 years at Classic Auto</div>
+          <div class="advisor-name">Your Classic Auto advisor</div>
+          <div class="advisor-role">Prabhu Plaza, Malad West &middot; Since 1974</div>
         </div>
       </div>
 
-      <p class="advisor-promise">Your consultant calls within 30 minutes, 7 am&ndash;9 pm &mdash; Classic Auto, Since 1974</p>
+      <p class="advisor-promise" data-wa-label="Send us your answers on WhatsApp and an advisor takes it from there — Classic Auto, Since 1974">Send us your answers by Instagram DM and an advisor takes it from there &mdash; Classic Auto, Since 1974</p>
 
       <div class="cta-stack">
-        <a class="cta-whatsapp" id="whatsappBtn" href="#" target="_blank" rel="noopener">WhatsApp us now</a>
-        <a class="cta-call" href="tel:+919588990000">Call +91 95889 90000</a>
-        <!-- Cal.com booking link goes here once the showroom booking calendar is set up -->
-        <a class="cta-visit" href="#">Book a showroom visit</a>
+        <a class="cta-whatsapp" id="whatsappBtn" href="https://ig.me/m/classicauto_1974" target="_blank" rel="noopener" data-wa-label="WhatsApp us now">DM @classicauto_1974</a>
+        <a class="cta-call" href="#" data-phone-link data-phone-show hidden>Call <span data-phone-text></span></a>
+        <!-- Swap for a Cal.com booking link once the showroom booking calendar is set up -->
+        <a class="cta-visit" href="https://www.google.com/maps/search/?api=1&amp;query=Prabhu+Plaza+S.V.+Road+Malad+West+Mumbai" target="_blank" rel="noopener">Visit Prabhu Plaza, Malad West</a>
       </div>
+      <p class="cta-note" id="dmNote" data-phone-hide aria-live="polite">Tapping DM copies your answers &mdash; just paste them into the chat.</p>
 
-      <p class="trust-line">Classic Auto, Malad West &middot; 150-point checked &middot; Since 1974</p>
+      <p class="trust-line">Classic Auto &middot; Prabhu Plaza, Malad West &middot; Since 1974</p>
 
       <div class="start-over">
         <button class="ghost-link" id="startOverBtn" type="button">Start over</button>
@@ -1622,7 +1626,7 @@ const CARS = [
      ============================================================ */
   var INTENT_OPTIONS = [
     {id:"buy", label:"Buy a car", sub:"Find the right car from our stock"},
-    {id:"sell", label:"Sell my car", sub:"Get a same-day valuation, no purchase needed"},
+    {id:"sell", label:"Sell my car", sub:"Get a valuation, no purchase needed"},
     {id:"buy-trade", label:"Buy + trade-in my current car", sub:"Upgrade, and we'll value what you're driving now"}
   ];
 
@@ -1926,7 +1930,7 @@ const CARS = [
       btn.setAttribute("role","radio");
       btn.setAttribute("aria-checked", answers.budget===band.id ? "true" : "false");
       btn.dataset.value = band.id;
-      btn.innerHTML = band.label + '<span class="chip-sub">'+count+' car'+(count===1?'':'s')+' in stock right now</span>';
+      btn.innerHTML = band.label + '<span class="chip-sub">'+count+' sample car'+(count===1?'':'s')+'</span>';
       btn.addEventListener("click", function(){
         container.querySelectorAll(".chip").forEach(function(s){ s.setAttribute("aria-checked","false"); });
         btn.setAttribute("aria-checked","true");
@@ -2340,11 +2344,11 @@ const CARS = [
     }
 
     titleEl.textContent = "Your shortlist";
-    subEl.textContent = "Matched from our current inventory, ranked by fit.";
+    subEl.textContent = "Matched from our sample listings, ranked by fit — DM us for today's real stock.";
     if(lastRelaxedKeys.length){
       var labels = lastRelaxedKeys.map(function(k){ return RELAX_LABELS[k]; });
       var joined = labels.length===1 ? labels[0] : labels.slice(0,-1).join(", ") + " and " + labels[labels.length-1];
-      subEl.textContent += " Nobody matched " + joined + " exactly, so we've widened the search to still show real options worth seeing.";
+      subEl.textContent += " Nobody matched " + joined + " exactly, so we've widened the search to still show the closest sample cars.";
     } else if(lastShortlist.length < 3){
       subEl.textContent += " We've widened the search a little to still show you options worth seeing.";
     }
@@ -2375,20 +2379,77 @@ const CARS = [
     var payoff = document.getElementById("advisor-title");
     var sub = document.getElementById("advisorSub");
     if(answers.intent === "sell"){
-      payoff.textContent = "We'll value your car and call you back.";
+      payoff.textContent = "We'll value your car and get back to you.";
       sub.textContent = answers.priority
         ? "You said this week — we're treating your valuation as priority."
         : "Every valuation ends with a real conversation, not a form.";
     } else if(answers.intent === "buy-trade"){
       payoff.textContent = "Your advisor will take it from here.";
       sub.textContent = (answers.priority ? "Priority handling — " : "") +
-        "we'll cover your shortlist and value your trade-in on the same call.";
+        "we'll cover your shortlist and value your trade-in in the same conversation.";
     } else {
       payoff.textContent = "Your advisor will take it from here.";
       sub.textContent = answers.priority
-        ? "You said this week — we're prioritising your call."
+        ? "You said this week — we're prioritising you."
         : "Every shortlist ends with a real conversation, not a checkout button.";
     }
+  }
+
+  /* ============================================================
+     CONTACT — public phone number lives in site-phone.js.
+     Owner decision, 2 Oct 2026: none until the new business number
+     arrives. While empty, the shortlist goes by Instagram DM (copied
+     for the visitor to paste) and the call button stays hidden.
+     ============================================================ */
+  var PHONE = String(window.CLASSIC_AUTO_PHONE || "");
+  var IG_DM_URL = "https://ig.me/m/classicauto_1974";
+  var PHONE_DIGITS = PHONE.replace(/\D/g, "");
+  if (PHONE_DIGITS.length === 10) PHONE_DIGITS = "91" + PHONE_DIGITS;
+  var HAS_PHONE = PHONE_DIGITS.length >= 11;
+  var lastMessage = "";
+
+  // Instagram DMs can't be pre-filled, so the message is copied for the visitor to paste.
+  function copyText(text){
+    if (!text) return;
+    try {
+      if (navigator.clipboard && window.isSecureContext){
+        navigator.clipboard.writeText(text).catch(function(){});
+        return;
+      }
+    } catch (e) { /* fall through to the textarea copy */ }
+    try {
+      var ta = document.createElement("textarea");
+      ta.value = text;
+      ta.setAttribute("readonly", "");
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      ta.remove();
+    } catch (e) { /* copying is a convenience; the DM still opens */ }
+  }
+
+  function contactLink(message){
+    if (!HAS_PHONE) return IG_DM_URL;
+    return "https://wa.me/" + PHONE_DIGITS + "?text=" + encodeURIComponent(message);
+  }
+  document.getElementById("whatsappBtn").addEventListener("click", function(){
+    if (HAS_PHONE) return;
+    copyText(lastMessage);
+    var note = document.getElementById("dmNote");
+    if (note) note.textContent = "Copied — paste it into the Instagram DM that just opened (@classicauto_1974).";
+  });
+
+  // Swap the DM / Visit buttons for Call / WhatsApp once a public number is set (site-phone.js).
+  if (HAS_PHONE){
+    document.documentElement.classList.add("has-phone");
+    document.querySelectorAll("[data-phone-link]").forEach(function(a){ a.href = "tel:+" + PHONE_DIGITS; });
+    document.querySelectorAll("[data-phone-text]").forEach(function(n){ n.textContent = PHONE; });
+    document.querySelectorAll("[data-phone-show]").forEach(function(n){ n.removeAttribute("hidden"); });
+    document.querySelectorAll("[data-phone-hide]").forEach(function(n){ n.setAttribute("hidden", ""); });
+    document.querySelectorAll("[data-wa-label]").forEach(function(n){ n.textContent = n.getAttribute("data-wa-label"); });
+    document.querySelectorAll("[data-wa-aria]").forEach(function(n){ n.setAttribute("aria-label", n.getAttribute("data-wa-aria")); });
   }
 
   function buildWhatsAppLink(){
@@ -2416,8 +2477,8 @@ const CARS = [
     lines.push("Could we set up a time to talk?");
 
     var message = lines.join(" ");
-    var url = "https://wa.me/919588990000?text=" + encodeURIComponent(message);
-    document.getElementById("whatsappBtn").setAttribute("href", url);
+    lastMessage = message;
+    document.getElementById("whatsappBtn").setAttribute("href", contactLink(message));
   }
 
   showStep(0);

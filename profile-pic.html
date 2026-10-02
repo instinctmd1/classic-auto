@@ -39,6 +39,10 @@
   .variant h2 { font-size: 12px; font-weight: 600; letter-spacing: .2em; text-transform: uppercase; }
   .variant h2 em { font-style: normal; color: var(--red); }
   .row { display: flex; gap: 22px; align-items: center; }
+  @media (max-width: 480px) {
+    .variant { padding: 22px 16px 20px; }
+    .row { flex-wrap: wrap; justify-content: center; }
+  }
   canvas.sq { width: 220px; height: 220px; border: 1px solid var(--surface); }
   .circleWrap { width: 110px; height: 110px; border-radius: 50%; overflow: hidden; border: 1px solid var(--surface); }
   .circleWrap canvas { width: 110px; height: 110px; display: block; }

@@ -625,7 +625,7 @@
       <div>
         <p class="q-eyebrow">Question 1 of 1</p>
         <h1 class="q-title">Their current car</h1>
-        <p class="promise-line">Our offer within hours &mdash; same-day payment.</p>
+        <p class="promise-line">Quick valuation &mdash; ask us about payment timelines.</p>
         <label class="field-label" for="ptiMakeModel">Make &amp; model</label>
         <input class="field-input" type="text" id="ptiMakeModel" placeholder="e.g. Hyundai i20 Sportz" autocomplete="off">
         <label class="field-label" for="ptiYear">Year</label>
@@ -648,11 +648,11 @@
   <div class="compare-wrap screen simple" data-step="compare">
     <div class="compare-head">
       <h1 id="compareTitle">Final shortlist</h1>
-      <p id="compareSub">Side by side, ranked by fit to today's brief.</p>
+      <p id="compareSub">Sample listings side by side, ranked by fit to today's brief.</p>
     </div>
 
     <div class="sell-compare-notice" id="sellCompareNotice" style="display:none;">
-      We'll value this trade-in and follow up &mdash; same-day payment once we agree a price. No comparison table needed since today's visit isn't about buying.
+      We'll value this trade-in and follow up &mdash; ask us about payment timelines. No comparison table needed since today's visit isn't about buying.
     </div>
 
     <div class="compare-table-wrap" id="compareTableWrap">
@@ -691,7 +691,7 @@
     <button class="restart-btn" id="restartBtn" type="button">Restart consultation</button>
   </div>
 
-  <div class="footer-lockup">Since 1974 &middot; 150-Point Checked</div>
+  <div class="footer-lockup">Since 1974 &middot; Prabhu Plaza, Malad West</div>
 </div>
 
 <script>
@@ -1083,7 +1083,7 @@ const CARS = [
       btn.dataset.value = band.id;
       btn.dataset.index = i;
       btn.tabIndex = i===0 ? 0 : -1;
-      btn.innerHTML = band.label + '<span class="kchip-sub">'+count+' car'+(count===1?'':'s')+' in stock</span>';
+      btn.innerHTML = band.label + '<span class="kchip-sub">'+count+' sample car'+(count===1?'':'s')+'</span>';
       btn.addEventListener("click", function(){ activateOption("budget", i); });
       container.appendChild(btn);
     });
@@ -1251,9 +1251,9 @@ const CARS = [
     });
     if(CURRENT_PATH.indexOf("segment") !== -1){
       var count = liveMatchCount();
-      html += '<div class="count-block"><div class="count-label">Matching inventory</div>' +
+      html += '<div class="count-block"><div class="count-label">Matching sample cars</div>' +
         '<div class="count-number" id="liveCount">'+count+'</div>' +
-        '<div class="count-sub">of '+CARS.length+' cars in stock</div></div>';
+        '<div class="count-sub">of '+CARS.length+' sample cars</div></div>';
     }
     return html;
   }
@@ -1478,8 +1478,8 @@ const CARS = [
     document.getElementById("sellCompareNotice").style.display = sellMode ? "block" : "none";
     document.getElementById("compareTitle").textContent = sellMode ? "Trade-in received" : "Final shortlist";
     document.getElementById("compareSub").textContent = sellMode
-      ? "We'll value this car and follow up — same-day payment once agreed."
-      : "Side by side, ranked by fit to today's brief.";
+      ? "We'll value this car and follow up — ask us about payment timelines."
+      : "Sample listings side by side, ranked by fit to today's brief.";
     if(sellMode) return;
 
     var table = document.getElementById("compareTable");
